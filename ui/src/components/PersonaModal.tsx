@@ -1,0 +1,96 @@
+import { useState } from "react";
+import type { Persona } from "../types";
+
+type Props = {
+  persona: Persona | null;
+  onClose: () => void;
+  onSaved: () => void;
+};
+
+export default function PersonaModal({ persona, onClose, onSaved }: Props) {
+  const [name, setName] = useState(persona?.name ?? "");
+  const [prompt, setPrompt] = useState(persona?.system_prompt ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const body = JSON.stringify({ name, system_prompt: prompt });
+    if (persona) {
+      await fetch(`/api/personas/${persona.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    } else {
+      await fetch("/api/personas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    }
+    setBusy(false);
+    onSaved();
+    onClose();
+  }
+
+  async function remove() {
+    if (!persona) return;
+    await fetch(`/api/personas/${persona.id}`, { method: "DELETE" });
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white dark:bg-zinc-800 rounded-xl p-5 w-96 text-black dark:text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold mb-3">
+          {persona ? "Edit Karakter" : "Buat Karakter"}
+        </h2>
+        <label className="block text-sm mb-1">Nama</label>
+        <input
+          className="w-full mb-3 rounded border p-2 bg-zinc-100 dark:bg-zinc-700"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <label className="block text-sm mb-1">System Prompt</label>
+        <textarea
+          className="w-full mb-3 rounded border p-2 bg-zinc-100 dark:bg-zinc-700"
+          rows={6}
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Deskripsi karakter, sifat, gaya bicara..."
+        />
+        <div className="flex justify-between items-center">
+          {persona ? (
+            <button className="text-red-500 text-sm" onClick={remove}>
+              Hapus
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 rounded bg-zinc-300 dark:bg-zinc-600"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="px-3 py-1 rounded bg-indigo-600 text-white disabled:opacity-50"
+              disabled={busy || !name}
+              onClick={save}
+            >
+              Simpan
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

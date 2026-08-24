@@ -15,6 +15,8 @@ def load_config() -> dict:
                 cfg[key] = env_val.lower() in ("1", "true", "yes")
             elif isinstance(value, int):
                 cfg[key] = int(env_val)
+            elif isinstance(value, float):
+                cfg[key] = float(env_val)
             else:
                 cfg[key] = env_val
     return cfg

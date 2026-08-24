@@ -4,6 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Momono</title>
+    <script>
+      function showErr(msg) {
+        var el = document.getElementById("err");
+        if (!el) {
+          el = document.createElement("pre");
+          el.id = "err";
+          el.style.cssText =
+            "position:fixed;inset:0;margin:0;padding:20px;background:#1a1a1f;color:#ff6b6b;font:13px monospace;white-space:pre-wrap;z-index:9999;overflow:auto";
+          document.body.appendChild(el);
+        }
+        el.textContent += msg + "\n\n";
+      }
+      window.addEventListener("error", function (e) {
+        showErr("ERROR: " + (e.message || e.error) + (e.filename ? "\n@ " + e.filename + ":" + e.lineno : ""));
+      });
+      window.addEventListener("unhandledrejection", function (e) {
+        showErr("UNHANDLED PROMISE: " + (e.reason && e.reason.message ? e.reason.message : e.reason));
+      });
+      setTimeout(function () {
+        var root = document.getElementById("root");
+        if (root && root.childElementCount === 0) {
+          showErr(" root masih kosong setelah 3 detik — app gagal render. Buka F12 > Console untuk detail.");
+        }
+      }, 3000);
+    </script>
   </head>
   <body>
     <div id="root"></div>
