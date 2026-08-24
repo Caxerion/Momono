@@ -1,14 +1,11 @@
 import uuid
-import json
 from datetime import datetime, timezone
-from pathlib import Path
-
-from fastapi import FastAPI, Request
-from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 
 from config import BASE_DIR
-from db import init_db, connect
+from db import connect, init_db
+from fastapi import FastAPI, Request
+from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from llm import load_config, stream_chat
 
 UI_DIR = BASE_DIR.parent / "ui" / "dist"
