@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timezone
 
-from config import BASE_DIR
 from db import connect, init_db
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
