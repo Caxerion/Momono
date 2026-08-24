@@ -5,10 +5,8 @@ from config import BASE_DIR
 from db import connect, init_db
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from llm import load_config, stream_chat
 
-UI_DIR = BASE_DIR.parent / "ui" / "dist"
 app = FastAPI()
 cfg = load_config()
 
@@ -149,17 +147,9 @@ async def update_persona(pid: str, req: Request):
         )
         conn.commit()
     return {"ok": True}
-
 @app.delete("/api/personas/{pid}")
 def delete_persona(pid: str):
     with connect() as conn:
         conn.execute("DELETE FROM personas WHERE id=?", (pid,))
         conn.commit()
     return {"ok": True}
-
-if UI_DIR.exists():
-    app.mount("/", StaticFiles(directory=UI_DIR, html=True), name="ui")
-else:
-    @app.get("/")
-    def root():
-        return {"note": "UI belum di-build. Jalankan `npm run build` di folder ui/"}
