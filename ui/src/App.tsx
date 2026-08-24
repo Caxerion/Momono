@@ -7,11 +7,14 @@ const PERSONA =
 
 type Message = { role: "user" | "assistant"; content: string };
 type Conversation = { id: string; title: string };
+type Persona = { id: string; name: string; system_prompt: string };
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [personas, setPersonas] = useState<Persona[]>([]);
+  const [personaId, setPersonaId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -25,8 +28,14 @@ export default function App() {
     setConversations(await res.json());
   }
 
+  async function loadPersonas() {
+    const res = await fetch("/api/personas");
+    setPersonas(await res.json());
+  }
+
   useEffect(() => {
     loadConversations();
+    loadPersonas();
   }, []);
 
   async function ensureConversation(): Promise<string> {
@@ -72,6 +81,7 @@ export default function App() {
       body: JSON.stringify({
         conversation_id: cid,
         message: text,
+        persona_id: personaId,
         system_prompt: PERSONA,
       }),
     });

@@ -66,7 +66,15 @@ async def chat(req: Request):
     data = await req.json()
     cid = data.get("conversation_id")
     user_msg = data.get("message", "")
+    persona_id = data.get("persona_id")
     persona_prompt = data.get("system_prompt", "")
+    if persona_id:
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT system_prompt FROM persona WHERE id=?", (persona_id,)
+            ).fetchone()
+        if row:
+            persona_prompt = row["system_prompt"]
 
     history = []
     if cid:
@@ -109,6 +117,45 @@ async def chat(req: Request):
 
     return StreamingResponse(event_stream(), media_type="text/plain")
 
+@app.get("/api/personas")
+def list_personas():
+    with connect() as conn:
+        rows = conn.execute(
+            "SELECT * FROM personas ORDER BY created_at DESC"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+@app.post("/api/personas")
+async def create_persona(req: Request):
+    data = await req.json()
+    pid = str(uuid.uuid4())
+    name = data.get("name", "Untitled Bot")
+    prompt = data.get("system_prompt", "")
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO personas (id, name, system_prompt, created_at) VALUES (?,?,?,?)",
+            (pid, name, prompt, now()),
+        )
+        conn.commit()
+    return {"id": pid, "name": name}
+
+@app.put("/api/personas/{pid}")
+async def update_persona(pid: str, req: Request):
+    data = await req.json()
+    with connect() as conn:
+        conn.execute(
+            "UPDATE personas SET name=?, system_prompt=? WHERE id=?",
+            (data.get("name", ""), data.get("system_prompt", ""), pid),
+        )
+        conn.commit()
+    return {"ok": True}
+
+@app.delete("/api/personas/{pid}")
+def delete_persona(pid: str):
+    with connect() as conn:
+        conn.execute("DELETE FROM personas WHERE id=?", (pid,))
+        conn.commit()
+    return {"ok": True}
 
 if UI_DIR.exists():
     app.mount("/", StaticFiles(directory=UI_DIR, html=True), name="ui")
