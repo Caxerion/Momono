@@ -9,12 +9,13 @@ type Props = {
 
 export default function PersonaModal({ persona, onClose, onSaved }: Props) {
   const [name, setName] = useState(persona?.name ?? "");
-  const [prompt, setPrompt] = useState(persona?.system_prompt ?? "");
+  const [about, setAbout] = useState(persona?.about ?? "");
+  const [greeting, setGreeting] = useState(persona?.greeting ?? "");
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
-    const body = JSON.stringify({ name, system_prompt: prompt });
+    const body = JSON.stringify({ name, about, greeting });
     if (persona) {
       await fetch(`/api/personas/${persona.id}`, {
         method: "PUT",
@@ -58,13 +59,21 @@ export default function PersonaModal({ persona, onClose, onSaved }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <label className="block text-sm mb-1">System Prompt</label>
+        <label className="block text-sm mb-1">About (deskripsi karakter)</label>
         <textarea
           className="w-full mb-3 rounded border p-2 bg-zinc-100 dark:bg-zinc-700"
           rows={6}
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Deskripsi karakter, sifat, gaya bicara..."
+          value={about}
+          onChange={(e) => setAbout(e.target.value)}
+          placeholder="Contoh: Seorang ksatria penyendiri tapi baik hati. Bicara sopan, sesekali bercanda."
+        />
+        <label className="block text-sm mb-1">Greeting (pesan pembuka, opsional)</label>
+        <textarea
+          className="w-full mb-3 rounded border p-2 bg-zinc-100 dark:bg-zinc-700"
+          rows={2}
+          value={greeting}
+          onChange={(e) => setGreeting(e.target.value)}
+          placeholder="Halo, ada yang bisa kubantu?"
         />
         <div className="flex justify-between items-center">
           {persona ? (

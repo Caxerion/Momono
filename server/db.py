@@ -35,10 +35,17 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 system_prompt TEXT NOT NULL,
+                about TEXT,
+                greeting TEXT,
                 created_at TEXT NOT NULL
             )
             """
         )
+        for col in ("about", "greeting"):
+            try:
+                cur.execute(f"ALTER TABLE personas ADD COLUMN {col} TEXT")
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
 
 

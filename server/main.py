@@ -68,10 +68,10 @@ async def chat(req: Request):
     if persona_id:
         with connect() as conn:
             row = conn.execute(
-                "SELECT system_prompt FROM persona WHERE id=?", (persona_id,)
+                "SELECT about, system_prompt FROM personas WHERE id=?", (persona_id,)
             ).fetchone()
         if row:
-            persona_prompt = row["system_prompt"]
+            persona_prompt = row["about"] or row["system_prompt"] or ""
 
     history = []
     if cid:
@@ -127,11 +127,12 @@ async def create_persona(req: Request):
     data = await req.json()
     pid = str(uuid.uuid4())
     name = data.get("name", "Untitled Bot")
-    prompt = data.get("system_prompt", "")
+    about = data.get("about", "")
+    greeting = data.get("greeting", "")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO personas (id, name, system_prompt, created_at) VALUES (?,?,?,?)",
-            (pid, name, prompt, now()),
+            "INSERT INTO personas (id, name, system_prompt, about, greeting, created_at) VALUES (?,?,?,?,?,?)",
+            (pid, name, about, about, greeting, now()),
         )
         conn.commit()
     return {"id": pid, "name": name}
@@ -139,10 +140,11 @@ async def create_persona(req: Request):
 @app.put("/api/personas/{pid}")
 async def update_persona(pid: str, req: Request):
     data = await req.json()
+    about = data.get("about", "")
     with connect() as conn:
         conn.execute(
-            "UPDATE personas SET name=?, system_prompt=? WHERE id=?",
-            (data.get("name", ""), data.get("system_prompt", ""), pid),
+            "UPDATE personas SET name=?, system_prompt=?, about=?, greeting=? WHERE id=?",
+            (data.get("name", ""), about, about, data.get("greeting", ""), pid),
         )
         conn.commit()
     return {"ok": True}

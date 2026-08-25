@@ -26,8 +26,10 @@ export default function ChatArea(p: Props) {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {p.messages.length === 0 && (
-          <div className="text-center text-zinc-400 mt-10">
-            Mulai ngobrol dengan karaktermu...
+          <div className="text-center text-zinc-400 mt-10 px-4">
+            {p.persona?.greeting
+              ? p.persona.greeting
+              : "Mulai ngobrol dengan karaktermu..."}
           </div>
         )}
         {p.messages.map((m, i) => (
@@ -65,7 +67,7 @@ export default function ChatArea(p: Props) {
           className="flex-1 resize-none rounded-xl border p-3 bg-zinc-100 dark:bg-zinc-800"
           rows={2}
           value={p.input}
-          placeholder="Ketik pesan..."
+          placeholder="Type Anything..."
           onChange={(e) => p.setInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
