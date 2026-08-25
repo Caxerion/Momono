@@ -12,6 +12,7 @@ import (
 
 type credentials struct {
 	Username string `json:"username"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -24,8 +25,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	creds.Username = strings.TrimSpace(creds.Username)
-	if creds.Username == "" || len(creds.Password) < 8 {
-		http.Error(w, "username wajib diisi, password minimal 8 karakter", http.StatusBadRequest)
+	creds.Email = strings.TrimSpace(creds.Email)
+	if creds.Username == "" || creds.Email == "" || len(creds.Password) < 8 {
+		http.Error(w, "username, email wajib diisi, password minimal 8 karakter", http.StatusBadRequest)
 		return
 	}
 
@@ -36,8 +38,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := db.Exec(
-		"INSERT INTO users (username, password_hash) VALUES (?, ?)",
-		creds.Username, string(hash),
+		"INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
+		creds.Username, creds.Email, string(hash),
 	); err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			http.Error(w, "username sudah dipakai", http.StatusConflict)
@@ -61,18 +63,26 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	creds.Username = strings.TrimSpace(creds.Username)
-	if creds.Username == "" || creds.Password == "" {
-		http.Error(w, "username dan password wajib diisi", http.StatusBadRequest)
+	creds.Email = strings.TrimSpace(creds.Email)
+	if (creds.Username == "" && creds.Email == "") || creds.Password == "" {
+		http.Error(w, "username/email dan password wajib diisi", http.StatusBadRequest)
 		return
 	}
 
 	var userID int64
 	var hash string
-	err := db.QueryRow(
-		"SELECT id, password_hash FROM users WHERE username=?", creds.Username,
-	).Scan(&userID, &hash)
+	var err error
+	if creds.Email != "" {
+		err = db.QueryRow(
+			"SELECT id, password_hash FROM users WHERE email=?", creds.Email,
+		).Scan(&userID, &hash)
+	} else {
+		err = db.QueryRow(
+			"SELECT id, password_hash FROM users WHERE username=?", creds.Username,
+		).Scan(&userID, &hash)
+	}
 	if err == sql.ErrNoRows {
-		http.Error(w, "username atau password salah", http.StatusUnauthorized)
+		http.Error(w, "username/email atau password salah", http.StatusUnauthorized)
 		return
 	}
 	if err != nil {
@@ -82,7 +92,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(creds.Password)); err != nil {
-		http.Error(w, "username atau password salah", http.StatusUnauthorized)
+		http.Error(w, "username/email atau password salah", http.StatusUnauthorized)
 		return
 	}
 

@@ -21,18 +21,20 @@ func Init(path string) error {
 	}
 
 	schema := `
-	CREATE TABLE IF NOT EXISTS users (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	username TEXT UNIQUE NOT NULL,
-	password_hash TEXT NOT NULL,
-	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	CREATE TABLE IF NOT EXISTS sessions (
-	token TEXT PRIMARY KEY,
-	user_id INTEGER NOT NULL REFERENCES users(id),
-	expires_at DATETIME NOT NULL,
-	created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
+CREATE TABLE IF NOT EXISTS users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+username TEXT UNIQUE NOT NULL,
+email TEXT UNIQUE,
+password_hash TEXT NOT NULL DEFAULT '',
+github_id TEXT UNIQUE,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS sessions (
+token TEXT PRIMARY KEY,
+user_id INTEGER NOT NULL REFERENCES users(id),
+expires_at DATETIME NOT NULL,
+created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);`
 	if _, err := d.Exec(schema); err != nil {
 		return err
 	}
@@ -84,4 +86,24 @@ func ValidateSession(token string) (int64, error) {
 func DeleteSession(token string) error {
 	_, err := db.Exec("DELETE FROM sessions WHERE token=?", token)
 	return err
+}
+
+func FindUserByGithubID(githubID string) (int64, error) {
+	var userID int64
+	err := db.QueryRow("SELECT id FROM users WHERE github_id=?", githubID).Scan(&userID)
+	if err != nil {
+		return 0, err
+	}
+	return userID, nil
+}
+
+func CreateUserWithGithub(githubID, username, email string) (int64, error) {
+	result, err := db.Exec(
+		"INSERT INTO users (username, email, github_id) VALUES (?, ?, ?)",
+		username, email, githubID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }

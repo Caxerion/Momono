@@ -53,6 +53,8 @@ func run() {
 		log.Fatal("Gagal inisialisasi auth.db: ", err)
 	}
 
+	auth.InitGitHubOAuth()
+
 	if _, err := exec.LookPath("python"); err != nil {
 		if _, err2 := exec.LookPath("python3"); err2 != nil {
 			log.Fatal("Python tidak ditemukan. Install Python 3.10+ dulu.")
@@ -73,6 +75,8 @@ func run() {
 	mux.HandleFunc("POST /api/auth/register", auth.RegisterHandler)
 	mux.HandleFunc("POST /api/auth/login", auth.LoginHandler)
 	mux.HandleFunc("POST /api/auth/logout", auth.LogoutHandler)
+	mux.HandleFunc("GET /api/auth/github", auth.GitHubLoginHandler)
+	mux.HandleFunc("GET /api/auth/github/callback", auth.GitHubCallbackHandler)
 	mux.Handle("/api/", auth.RequireAuth(proxy))
 	mux.Handle("/", http.FileServer(http.Dir(distDir)))
 

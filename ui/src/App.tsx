@@ -24,6 +24,15 @@ export default function App() {
   const [dark, setDark] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    if (urlToken) {
+      handleLogin(urlToken);
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   function authHeaders(): Record<string, string> {
     return token ? { Authorization: `Bearer ${token}` } : {};
   }
