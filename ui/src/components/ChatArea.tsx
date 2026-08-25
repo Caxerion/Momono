@@ -2,6 +2,20 @@ import { useEffect, useRef } from "react";
 import Avatar from "./Avatar";
 import type { Message, Persona } from "../types";
 
+function renderText(text: string) {
+  const parts = text.split(/(\*[^*]+\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return (
+        <em key={i} className="italic opacity-80">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
 type Props = {
   persona: Persona | null;
   messages: Message[];
@@ -27,9 +41,7 @@ export default function ChatArea(p: Props) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {p.messages.length === 0 && (
           <div className="text-center text-zinc-400 mt-10 px-4">
-            {p.persona?.greeting
-              ? p.persona.greeting
-              : "Mulai ngobrol dengan karaktermu..."}
+            Mulai ngobrol dengan karaktermu...
           </div>
         )}
         {p.messages.map((m, i) => (
@@ -49,7 +61,7 @@ export default function ChatArea(p: Props) {
                   : "bg-zinc-100 dark:bg-zinc-800"
               }`}
             >
-              {m.content}
+              {renderText(m.content)}
             </div>
           </div>
         ))}

@@ -73,7 +73,7 @@ export default function PersonaModal({ persona, token, onClose, onSaved }: Props
           rows={6}
           value={about}
           onChange={(e) => setAbout(e.target.value)}
-          placeholder="Contoh: Seorang ksatria penyendiri tapi baik hati. Bicara sopan, sesekali bercanda."
+          placeholder="Contoh: Seorang gadis SMA yang pemalu tapi care. Suka baca novel. Kalau malu, pipinya merah dan suka ngomong pelan."
         />
         <label className="block text-sm mb-1">Greeting (pesan pembuka, opsional)</label>
         <textarea
@@ -81,7 +81,7 @@ export default function PersonaModal({ persona, token, onClose, onSaved }: Props
           rows={2}
           value={greeting}
           onChange={(e) => setGreeting(e.target.value)}
-          placeholder="Halo, ada yang bisa kubantu?"
+          placeholder="*dia melambaikan tangan* Hei, kamu juga disini?"
         />
         <div className="flex justify-between items-center">
           {persona ? (

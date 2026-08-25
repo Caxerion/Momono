@@ -6,8 +6,13 @@ import Login from "./components/Login";
 import type { Conversation, Message, Persona } from "./types";
 
 const DEFAULT_PROMPT =
-  "Kamu adalah karakter dalam roleplay yang dramatis dan emosional. " +
-  "Balas dengan gaya naratif mendalam, ekspresif, dan penuh nuansa.";
+  "Kamu HARUS membalas dalam format roleplay. " +
+  "Setiap respon WAJIB mengandung aksi dalam tanda bintang *seperti ini*. " +
+  "Contoh yang BENAR: *dia berjalan mendekat dan duduk di sebelahmu* Hei, lagi ngapain? " +
+  "Contoh yang SALAH: Hai, lagi ngapain? (ini tanpa aksi, JANGAN lakukan ini). " +
+  "Gunakan *asterisk* untuk: aksi, gerakan tubuh, ekspresi wajah, perasaan, suara, deskripsi situasi. " +
+  "Campurkan aksi dan dialog dalam satu paragraf secara natural. " +
+  "Jangan pernah memulai respon tanpa aksi asterisk terlebih dahulu.";
 
 export default function App() {
   const [token, setToken] = useState<string | null>(
@@ -79,6 +84,7 @@ export default function App() {
     setConversationId(null);
     setMessages([]);
     setShowHistory(false);
+    const persona = personas.find((p) => p.id === pid);
     const data = await getJSON(`/api/conversations?persona_id=${pid}`);
     if (data && data.length > 0) {
       const latest = data[0];
@@ -92,6 +98,8 @@ export default function App() {
           }))
         );
       }
+    } else if (persona?.greeting) {
+      setMessages([{ role: "assistant", content: persona.greeting }]);
     }
     setConversations(data || []);
   }
@@ -118,6 +126,14 @@ export default function App() {
   }
 
   function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setShowHistory(false);
+  }
+
+  async function handleDeleteHistory(pid: string) {
+    await getJSON(`/api/conversations/persona/${pid}`, { method: "DELETE" });
+    setConversations([]);
     setConversationId(null);
     setMessages([]);
     setShowHistory(false);
@@ -213,6 +229,7 @@ export default function App() {
         personaId={personaId}
         onSelectPersona={handleSelectPersona}
         onNewPersona={() => setModalOpen(true)}
+        onDeleteHistory={handleDeleteHistory}
       />
       <div className="flex-1 flex flex-col relative">
         {personaId && currentPersona ? (

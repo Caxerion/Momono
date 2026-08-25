@@ -75,10 +75,15 @@ async def chat(req: Request):
     if persona_id:
         with connect() as conn:
             row = conn.execute(
-                "SELECT about, system_prompt FROM personas WHERE id=?", (persona_id,)
+                "SELECT about, system_prompt, greeting FROM personas WHERE id=?", (persona_id,)
             ).fetchone()
         if row:
             persona_prompt = row["about"] or row["system_prompt"] or ""
+            greeting = row["greeting"] or ""
+        else:
+            greeting = ""
+    else:
+        greeting = ""
 
     history = []
     if cid:
@@ -88,6 +93,9 @@ async def chat(req: Request):
                 (cid,),
             ).fetchall()
         history = [{"role": r["role"], "content": r["content"]} for r in rows]
+
+    if not history and greeting:
+        history = [{"role": "assistant", "content": greeting}]
 
     messages = []
     if persona_prompt:
@@ -159,5 +167,13 @@ async def update_persona(pid: str, req: Request):
 def delete_persona(pid: str):
     with connect() as conn:
         conn.execute("DELETE FROM personas WHERE id=?", (pid,))
+        conn.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/conversations/persona/{pid}")
+def delete_persona_conversations(pid: str):
+    with connect() as conn:
+        conn.execute("DELETE FROM conversations WHERE persona_id=?", (pid,))
         conn.commit()
     return {"ok": True}
