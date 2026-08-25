@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"momono/init/auth"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -47,6 +48,11 @@ func main() {
 }
 
 func run() {
+
+	if err := auth.Init("auth.db"); err != nil {
+		log.Fatal("Gagal inisialisasi auth.db: ", err)
+	}
+
 	if _, err := exec.LookPath("python"); err != nil {
 		if _, err2 := exec.LookPath("python3"); err2 != nil {
 			log.Fatal("Python tidak ditemukan. Install Python 3.10+ dulu.")
@@ -62,7 +68,12 @@ func run() {
 
 	mux := http.NewServeMux()
 	target, _ := url.Parse("http://127.0.0.1:" + apiPort)
-	mux.Handle("/api/", httputil.NewSingleHostReverseProxy(target))
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	mux.HandleFunc("POST /api/auth/register", auth.RegisterHandler)
+	mux.HandleFunc("POST /api/auth/login", auth.LoginHandler)
+	mux.HandleFunc("POST /api/auth/logout", auth.LogoutHandler)
+	mux.Handle("/api/", auth.RequireAuth(proxy))
 	mux.Handle("/", http.FileServer(http.Dir(distDir)))
 
 	srv := &http.Server{Addr: ":" + webPort, Handler: mux}
