@@ -20,9 +20,9 @@ export default function App() {
   const [personaId, setPersonaId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [search, setSearch] = useState("");
   const [dark, setDark] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -55,14 +55,18 @@ export default function App() {
     }
   }
 
-  async function loadConversations() {
-    const data = await getJSON("/api/conversations");
+  async function loadConversations(pid?: string | null) {
+    const target = pid !== undefined ? pid : personaId;
+    const url = target ? `/api/conversations?persona_id=${target}` : "/api/conversations";
+    const data = await getJSON(url);
     if (data) setConversations(data);
   }
+
   async function loadPersonas() {
     const data = await getJSON("/api/personas");
     if (data) setPersonas(data);
   }
+
   useEffect(() => {
     if (token) {
       loadConversations();
@@ -70,21 +74,39 @@ export default function App() {
     }
   }, [token]);
 
-  async function ensureConversation(): Promise<string> {
-    if (conversationId) return conversationId;
-    const d = await getJSON("/api/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "New Chat" }),
-    });
-    if (!d) return "";
-    setConversationId(d.id);
-    loadConversations();
-    return d.id;
+  async function handleSelectPersona(pid: string) {
+    setPersonaId(pid);
+    setConversationId(null);
+    setMessages([]);
+    setShowHistory(false);
+    const data = await getJSON(`/api/conversations?persona_id=${pid}`);
+    if (data && data.length > 0) {
+      const latest = data[0];
+      setConversationId(latest.id);
+      const msgs = await getJSON(`/api/conversations/${latest.id}/messages`);
+      if (msgs) {
+        setMessages(
+          msgs.map((m: { role: string; content: string }) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }))
+        );
+      }
+    }
+    setConversations(data || []);
   }
 
-  async function selectConversation(id: string) {
+  function handleBackToDefault() {
+    setPersonaId(null);
+    setConversationId(null);
+    setMessages([]);
+    setShowHistory(false);
+    loadConversations(null);
+  }
+
+  async function handleSelectConversation(id: string) {
     setConversationId(id);
+    setShowHistory(false);
     const d = await getJSON(`/api/conversations/${id}/messages`);
     if (!d) return;
     setMessages(
@@ -93,6 +115,25 @@ export default function App() {
         content: m.content,
       }))
     );
+  }
+
+  function handleNewChat() {
+    setConversationId(null);
+    setMessages([]);
+    setShowHistory(false);
+  }
+
+  async function ensureConversation(): Promise<string> {
+    if (conversationId) return conversationId;
+    const d = await getJSON("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "New Chat", persona_id: personaId }),
+    });
+    if (!d) return "";
+    setConversationId(d.id);
+    loadConversations();
+    return d.id;
   }
 
   async function send() {
@@ -170,31 +211,93 @@ export default function App() {
         conversations={conversations}
         personas={personas}
         personaId={personaId}
-        search={search}
-        onSearch={setSearch}
-        onSelectConversation={selectConversation}
-        onSelectPersona={setPersonaId}
-        onNewChat={() => {
-          setConversationId(null);
-          setMessages([]);
-        }}
+        onSelectPersona={handleSelectPersona}
         onNewPersona={() => setModalOpen(true)}
       />
-      <div className="flex-1 flex flex-col">
-        <div className="flex justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
-          <button
-            className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
-            onClick={() => setDark(!dark)}
-          >
-            {dark ? "☀️ Light" : "🌙 Dark"}
-          </button>
-          <button
-            className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-            onClick={handleLogout}
-          >
-            Keluar
-          </button>
-        </div>
+      <div className="flex-1 flex flex-col relative">
+        {personaId && currentPersona ? (
+          <>
+            <div className="flex items-center p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+              <button
+                onClick={handleBackToDefault}
+                className="rounded-lg px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-800"
+              >
+                ←
+              </button>
+              <span className="font-semibold text-sm truncate">
+                {currentPersona.name}
+              </span>
+              <div className="flex-1" />
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`rounded-lg px-3 py-1 text-sm ${
+                  showHistory
+                    ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300"
+                    : "bg-zinc-200 dark:bg-zinc-800"
+                }`}
+              >
+                📜 History
+              </button>
+              <button
+                className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
+                onClick={() => setDark(!dark)}
+              >
+                {dark ? "☀️" : "🌙"}
+              </button>
+              <button
+                className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                onClick={handleLogout}
+              >
+                Keluar
+              </button>
+            </div>
+
+            {showHistory && (
+              <div className="absolute top-[45px] right-0 w-72 h-[calc(100%-45px)] border-l border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 z-10 flex flex-col">
+                <div className="p-3 font-semibold text-sm border-b border-zinc-200 dark:border-zinc-700">
+                  History Chat
+                </div>
+                <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
+                  <button
+                    onClick={handleNewChat}
+                    className="w-full text-left p-2.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-dashed border-indigo-300 dark:border-indigo-700"
+                  >
+                    + Chat Baru
+                  </button>
+                  {conversations.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSelectConversation(c.id)}
+                      className={`block w-full text-left p-2.5 rounded-lg text-sm truncate ${
+                        conversationId === c.id
+                          ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300"
+                          : "hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      {c.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+            <button
+              className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
+              onClick={() => setDark(!dark)}
+            >
+              {dark ? "☀️ Light" : "🌙 Dark"}
+            </button>
+            <button
+              className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+              onClick={handleLogout}
+            >
+              Keluar
+            </button>
+          </div>
+        )}
+
         <ChatArea
           persona={currentPersona}
           messages={messages}

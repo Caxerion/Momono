@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -48,6 +50,7 @@ func main() {
 }
 
 func run() {
+	godotenv.Load()
 
 	if err := auth.Init("auth.db"); err != nil {
 		log.Fatal("Gagal inisialisasi auth.db: ", err)

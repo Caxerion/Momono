@@ -39,6 +39,13 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		return err
 	}
 
+	for _, col := range []string{
+		"ALTER TABLE users ADD COLUMN email TEXT",
+		"ALTER TABLE users ADD COLUMN github_id TEXT",
+	} {
+		d.Exec(col)
+	}
+
 	db = d
 	return nil
 }

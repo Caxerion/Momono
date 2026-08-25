@@ -1,9 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 
-from db import connect, init_db
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
+
+from db import connect, init_db
 from llm import load_config, stream_chat
 
 app = FastAPI()
@@ -25,11 +26,17 @@ def health():
 
 
 @app.get("/api/conversations")
-def list_conversations():
+def list_conversations(persona_id: str | None = None):
     with connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM conversations ORDER BY updated_at DESC"
-        ).fetchall()
+        if persona_id:
+            rows = conn.execute(
+                "SELECT * FROM conversations WHERE persona_id=? ORDER BY updated_at DESC",
+                (persona_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM conversations ORDER BY updated_at DESC"
+            ).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -38,14 +45,15 @@ async def create_conversation(req: Request):
     data = await req.json()
     cid = str(uuid.uuid4())
     title = data.get("title", "New Chat")
+    persona_id = data.get("persona_id")
     ts = now()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?,?,?,?)",
-            (cid, title, ts, ts),
+            "INSERT INTO conversations (id, title, persona_id, created_at, updated_at) VALUES (?,?,?,?,?)",
+            (cid, title, persona_id, ts, ts),
         )
         conn.commit()
-    return {"id": cid, "title": title}
+    return {"id": cid, "title": title, "persona_id": persona_id}
 
 
 @app.get("/api/conversations/{cid}/messages")
