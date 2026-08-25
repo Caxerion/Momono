@@ -1,10 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
+from db import connect, init_db
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
-
-from db import connect, init_db
 from llm import load_config, stream_chat
 
 app = FastAPI()
