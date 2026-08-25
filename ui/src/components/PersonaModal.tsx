@@ -3,11 +3,12 @@ import type { Persona } from "../types";
 
 type Props = {
   persona: Persona | null;
+  token: string | null;
   onClose: () => void;
   onSaved: () => void;
 };
 
-export default function PersonaModal({ persona, onClose, onSaved }: Props) {
+export default function PersonaModal({ persona, token, onClose, onSaved }: Props) {
   const [name, setName] = useState(persona?.name ?? "");
   const [about, setAbout] = useState(persona?.about ?? "");
   const [greeting, setGreeting] = useState(persona?.greeting ?? "");
@@ -16,16 +17,20 @@ export default function PersonaModal({ persona, onClose, onSaved }: Props) {
   async function save() {
     setBusy(true);
     const body = JSON.stringify({ name, about, greeting });
+    const headers = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
     if (persona) {
       await fetch(`/api/personas/${persona.id}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body,
       });
     } else {
       await fetch("/api/personas", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body,
       });
     }
@@ -36,7 +41,10 @@ export default function PersonaModal({ persona, onClose, onSaved }: Props) {
 
   async function remove() {
     if (!persona) return;
-    await fetch(`/api/personas/${persona.id}`, { method: "DELETE" });
+    await fetch(`/api/personas/${persona.id}`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     onSaved();
     onClose();
   }

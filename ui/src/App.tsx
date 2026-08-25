@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import PersonaModal from "./components/PersonaModal";
+import Login from "./components/Login";
 import type { Conversation, Message, Persona } from "./types";
 
 const DEFAULT_PROMPT =
@@ -9,6 +10,9 @@ const DEFAULT_PROMPT =
   "Balas dengan gaya naratif mendalam, ekspresif, dan penuh nuansa.";
 
 export default function App() {
+  const [token, setToken] = useState<string | null>(
+    () => localStorage.getItem("token")
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -20,9 +24,21 @@ export default function App() {
   const [dark, setDark] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
+  function authHeaders(): Record<string, string> {
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   async function getJSON(url: string, init?: RequestInit): Promise<any> {
     try {
-      const r = await fetch(url, init);
+      const r = await fetch(url, {
+        ...init,
+        headers: { ...authHeaders(), ...init?.headers },
+      });
+      if (r.status === 401) {
+        setToken(null);
+        localStorage.removeItem("token");
+        return null;
+      }
       if (!r.ok) return null;
       return await r.json();
     } catch {
@@ -39,9 +55,11 @@ export default function App() {
     if (data) setPersonas(data);
   }
   useEffect(() => {
-    loadConversations();
-    loadPersonas();
-  }, []);
+    if (token) {
+      loadConversations();
+      loadPersonas();
+    }
+  }, [token]);
 
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
@@ -81,7 +99,7 @@ export default function App() {
     setBusy(true);
     const r = await fetch("/api/chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...authHeaders() },
       body: JSON.stringify({
         conversation_id: cid || null,
         message: text,
@@ -89,6 +107,12 @@ export default function App() {
         system_prompt: DEFAULT_PROMPT,
       }),
     });
+    if (r.status === 401) {
+      setToken(null);
+      localStorage.removeItem("token");
+      setBusy(false);
+      return;
+    }
     const reader = r.body!.getReader();
     const dec = new TextDecoder();
     let acc = "";
@@ -103,6 +127,28 @@ export default function App() {
       });
     }
     setBusy(false);
+  }
+
+  function handleLogin(newToken: string) {
+    localStorage.setItem("token", newToken);
+    setToken(newToken);
+  }
+
+  function handleLogout() {
+    fetch("/api/auth/logout", {
+      method: "POST",
+      headers: authHeaders(),
+    }).finally(() => {
+      localStorage.removeItem("token");
+      setToken(null);
+      setMessages([]);
+      setConversations([]);
+      setConversationId(null);
+    });
+  }
+
+  if (!token) {
+    return <Login onLogin={handleLogin} />;
   }
 
   const currentPersona = personaId
@@ -126,12 +172,18 @@ export default function App() {
         onNewPersona={() => setModalOpen(true)}
       />
       <div className="flex-1 flex flex-col">
-        <div className="flex justify-end p-2 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
           <button
             className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
             onClick={() => setDark(!dark)}
           >
             {dark ? "☀️ Light" : "🌙 Dark"}
+          </button>
+          <button
+            className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+            onClick={handleLogout}
+          >
+            Keluar
           </button>
         </div>
         <ChatArea
@@ -146,6 +198,7 @@ export default function App() {
       {modalOpen && (
         <PersonaModal
           persona={null}
+          token={token}
           onClose={() => setModalOpen(false)}
           onSaved={loadPersonas}
         />
