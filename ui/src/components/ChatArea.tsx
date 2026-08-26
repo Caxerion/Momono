@@ -71,7 +71,7 @@ export default function ChatArea(p: Props) {
     lastBubble.responses[lastBubble.responses.length - 1].content !== "";
 
   return (
-    <main className="flex-1 flex flex-col bg-white dark:bg-zinc-950">
+    <main className="flex-1 flex flex-col bg-white dark:bg-zinc-950 min-h-0">
       <header className="flex items-center gap-3 p-3 border-b border-zinc-200 dark:border-zinc-800">
         <Avatar name={p.persona?.name ?? "Default"} size={36} />
         <span className="font-semibold">{p.persona?.name ?? "Default"}</span>

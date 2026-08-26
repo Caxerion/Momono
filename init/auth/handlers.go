@@ -123,3 +123,28 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "logout berhasil"})
 }
+
+func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	token = strings.TrimPrefix(token, "Bearer ")
+	if token == "" {
+		http.Error(w, "token tidak ditemukan", http.StatusUnauthorized)
+		return
+	}
+	userID, err := ValidateSession(token)
+	if err != nil {
+		http.Error(w, "session tidak valid", http.StatusUnauthorized)
+		return
+	}
+	var username, email string
+	err = db.QueryRow("SELECT username, email FROM users WHERE id=?", userID).Scan(&username, &email)
+	if err != nil {
+		http.Error(w, "user tidak ditemukan", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"username": username,
+		"email":    email,
+	})
+}

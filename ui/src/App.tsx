@@ -29,6 +29,7 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
+  const [userProfile, setUserProfile] = useState<{ username: string; email: string } | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -73,10 +74,18 @@ export default function App() {
     if (data) setPersonas(data);
   }
 
+  async function loadProfile() {
+    const data = await getJSON("/api/auth/me");
+    if (data) setUserProfile(data);
+  }
+
   useEffect(() => {
     if (token) {
+      loadProfile();
       loadConversations();
       loadPersonas();
+    } else {
+      setUserProfile(null);
     }
   }, [token]);
 
@@ -303,16 +312,17 @@ export default function App() {
     : null;
 
   return (
-    <div className={`${dark ? "dark" : ""} flex h-screen`}>
+    <div className={`${dark ? "dark" : ""} flex h-screen overflow-hidden`}>
       <Sidebar
         conversations={conversations}
         personas={personas}
         personaId={personaId}
+        userProfile={userProfile}
         onSelectPersona={handleSelectPersona}
         onNewPersona={() => setModalOpen(true)}
         onDeleteHistory={handleDeleteHistory}
       />
-      <div className="flex-1 flex flex-col relative">
+      <div className="flex-1 flex flex-col relative min-h-0">
         {personaId && currentPersona ? (
           <>
             <div className="flex items-center p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">

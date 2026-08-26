@@ -78,6 +78,7 @@ func run() {
 	mux.HandleFunc("POST /api/auth/register", auth.RegisterHandler)
 	mux.HandleFunc("POST /api/auth/login", auth.LoginHandler)
 	mux.HandleFunc("POST /api/auth/logout", auth.LogoutHandler)
+	mux.HandleFunc("GET /api/auth/me", auth.ProfileHandler)
 	mux.HandleFunc("GET /api/auth/github", auth.GitHubLoginHandler)
 	mux.HandleFunc("GET /api/auth/github/callback", auth.GitHubCallbackHandler)
 	mux.Handle("/api/", auth.RequireAuth(proxy))

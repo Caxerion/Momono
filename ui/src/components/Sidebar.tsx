@@ -6,6 +6,7 @@ type Props = {
   conversations: Conversation[];
   personas: Persona[];
   personaId: string | null;
+  userProfile: { username: string; email: string } | null;
   onSelectPersona: (id: string) => void;
   onNewPersona: () => void;
   onDeleteHistory: (personaId: string) => void;
@@ -28,7 +29,7 @@ export default function Sidebar(p: Props) {
   }, []);
 
   return (
-    <aside className="w-72 shrink-0 border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 flex flex-col">
+    <aside className="w-72 shrink-0 border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 flex flex-col h-screen">
       <div className="p-3 font-bold text-lg">Momono</div>
 
       <nav className="px-2 py-1 flex flex-col gap-0.5">
@@ -44,6 +45,20 @@ export default function Sidebar(p: Props) {
           Create Character
         </button>
       </nav>
+
+      <div className="border-t border-zinc-200 dark:border-zinc-700 my-2" />
+
+      {p.userProfile && (
+        <div className="px-3 pb-3">
+          <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800">
+            <Avatar name={p.userProfile.username} size={36} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">{p.userProfile.username}</p>
+              <p className="text-xs text-zinc-500 truncate">{p.userProfile.email}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="border-t border-zinc-200 dark:border-zinc-700 my-2" />
 
