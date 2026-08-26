@@ -76,6 +76,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		err = db.QueryRow(
 			"SELECT id, password_hash FROM users WHERE email=?", creds.Email,
 		).Scan(&userID, &hash)
+		if err == sql.ErrNoRows {
+			err = db.QueryRow(
+				"SELECT id, password_hash FROM users WHERE username=?", creds.Email,
+			).Scan(&userID, &hash)
+		}
 	} else {
 		err = db.QueryRow(
 			"SELECT id, password_hash FROM users WHERE username=?", creds.Username,

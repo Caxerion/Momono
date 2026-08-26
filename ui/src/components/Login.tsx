@@ -31,7 +31,13 @@ export default function Login({ onLogin }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = await r.json();
+      const text = await r.text();
+      let data: Record<string, string>;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { detail: text || "Terjadi kesalahan" };
+      }
 
       if (!r.ok) {
         setError(data.detail || "Terjadi kesalahan");
