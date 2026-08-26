@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Avatar from "./Avatar";
 import type { Persona } from "../types";
 
@@ -9,6 +10,8 @@ type Props = {
 };
 
 export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Props) {
+  const [photoPreview, setPhotoPreview] = useState(false);
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-950">
       <div className="flex items-center gap-3 p-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -23,7 +26,12 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
 
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
         <div className="flex flex-col items-center mb-8">
-          <Avatar name={persona.name} size={96} src={persona.avatar_url} />
+          <button
+            className="rounded-full"
+            onClick={() => persona.avatar_url && setPhotoPreview(true)}
+          >
+            <Avatar name={persona.name} size={96} src={persona.avatar_url} />
+          </button>
           <h1 className="mt-4 text-2xl font-bold">{persona.name}</h1>
           {persona.title && (
             <p className="text-sm text-zinc-500 mt-1">{persona.title}</p>
@@ -70,6 +78,19 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
           </button>
         </div>
       </div>
+
+      {photoPreview && persona.avatar_url && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center cursor-pointer"
+          onClick={() => setPhotoPreview(false)}
+        >
+          <img
+            src={persona.avatar_url}
+            alt={persona.name}
+            className="w-64 h-64 rounded-full object-cover shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }

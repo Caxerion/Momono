@@ -235,7 +235,7 @@ func AvatarUploadHandler(w http.ResponseWriter, r *http.Request) {
 	hash := hex.EncodeToString(hasher.Sum(nil))[:12]
 	filename := fmt.Sprintf("user_%d_%s%s", userID, hash, ext)
 
-	uploadDir := "uploads"
+	uploadDir := "../uploads"
 	os.MkdirAll(uploadDir, 0755)
 	dst, err := os.Create(filepath.Join(uploadDir, filename))
 	if err != nil {

@@ -18,6 +18,7 @@ export default function Sidebar(p: Props) {
   const [chatsOpen, setChatsOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,18 +153,39 @@ export default function Sidebar(p: Props) {
 
       {p.userProfile && (
         <div className="mt-auto border-t border-zinc-200 dark:border-zinc-700 px-3 py-3">
-          <button
-            onClick={p.onOpenSettings}
-            className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 w-full text-left"
-          >
-            <Avatar name={p.userProfile.username} size={36} src={p.userProfile.avatar_url} />
-            <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (p.userProfile?.avatar_url) setPhotoPreview(p.userProfile.avatar_url);
+              }}
+              className="shrink-0"
+            >
+              <Avatar name={p.userProfile.username} size={36} src={p.userProfile.avatar_url} />
+            </button>
+            <button
+              onClick={p.onOpenSettings}
+              className="min-w-0 flex-1 text-left"
+            >
               <p className="text-sm font-semibold truncate">
                 {p.userProfile.display_name || p.userProfile.username}
               </p>
               <p className="text-xs text-zinc-500 truncate">@{p.userProfile.username}</p>
-            </div>
-          </button>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {photoPreview && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center cursor-pointer"
+          onClick={() => setPhotoPreview(null)}
+        >
+          <img
+            src={photoPreview}
+            alt="Profile"
+            className="max-w-[80vw] max-h-[80vh] rounded-2xl object-contain shadow-2xl"
+          />
         </div>
       )}
     </aside>

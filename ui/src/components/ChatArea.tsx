@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import type { Message, Persona, UserProfile } from "../types";
 
@@ -59,6 +59,7 @@ type Props = {
 
 export default function ChatArea(p: Props) {
   const endRef = useRef<HTMLDivElement>(null);
+  const [photoPreview, setPhotoPreview] = useState(false);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [p.messages]);
@@ -87,7 +88,12 @@ export default function ChatArea(p: Props) {
 
         {p.persona && p.persona.greeting && (
           <div className="flex flex-col items-center gap-2 pt-4 pb-2">
-            <Avatar name={p.persona.name} size={64} src={p.persona.avatar_url} />
+            <button
+              className="rounded-full"
+              onClick={() => p.persona?.avatar_url && setPhotoPreview(true)}
+            >
+              <Avatar name={p.persona.name} size={64} src={p.persona.avatar_url} />
+            </button>
             <span className="font-bold text-lg">{p.persona.name}</span>
             {p.persona.title && (
               <span className="text-sm text-zinc-500 dark:text-zinc-400">{p.persona.title}</span>
@@ -212,6 +218,19 @@ export default function ChatArea(p: Props) {
           Send
         </button>
       </form>
+
+      {photoPreview && p.persona?.avatar_url && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center cursor-pointer"
+          onClick={() => setPhotoPreview(false)}
+        >
+          <img
+            src={p.persona.avatar_url}
+            alt={p.persona.name}
+            className="w-64 h-64 rounded-full object-cover shadow-2xl"
+          />
+        </div>
+      )}
     </main>
   );
 }
