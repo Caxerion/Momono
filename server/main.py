@@ -65,6 +65,20 @@ def get_messages(cid: str):
     return [dict(r) for r in rows]
 
 
+@app.post("/api/conversations/{cid}/messages")
+async def add_message(cid: str, req: Request):
+    data = await req.json()
+    role = data.get("role", "user")
+    content = data.get("content", "")
+    with connect() as conn:
+        conn.execute(
+            "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?,?,?,?)",
+            (cid, role, content, now()),
+        )
+        conn.commit()
+    return {"ok": True}
+
+
 @app.post("/api/chat")
 async def chat(req: Request):
     data = await req.json()

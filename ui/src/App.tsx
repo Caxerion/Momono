@@ -110,13 +110,16 @@ export default function App() {
       setConversationId(latest.id);
       const msgs = await getJSON(`/api/conversations/${latest.id}/messages`);
       if (msgs) {
-        setMessages(
-          msgs.map((m: { role: string; content: string; regenerate_index?: number }) => ({
-            role: m.role as "user" | "assistant",
-            content: m.content,
-            regenerate_index: m.regenerate_index ?? 0,
-          }))
-        );
+        const mapped = msgs.map((m: { role: string; content: string; regenerate_index?: number }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          regenerate_index: m.regenerate_index ?? 0,
+        }));
+        const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === persona.greeting);
+        if (!hasGreeting && persona?.greeting) {
+          mapped.unshift({ role: "assistant", content: persona.greeting });
+        }
+        setMessages(mapped);
         setRegenView({});
       }
     } else if (persona?.greeting) {
@@ -138,13 +141,17 @@ export default function App() {
     setShowHistory(false);
     const d = await getJSON(`/api/conversations/${id}/messages`);
     if (!d) return;
-    setMessages(
-      d.map((m: { role: string; content: string; regenerate_index?: number }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        regenerate_index: m.regenerate_index ?? 0,
-      }))
-    );
+    const mapped = d.map((m: { role: string; content: string; regenerate_index?: number }) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+      regenerate_index: m.regenerate_index ?? 0,
+    }));
+    const persona = personas.find((p) => p.id === personaId);
+    const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === persona.greeting);
+    if (!hasGreeting && persona?.greeting) {
+      mapped.unshift({ role: "assistant", content: persona.greeting });
+    }
+    setMessages(mapped);
     setRegenView({});
   }
 
@@ -177,6 +184,14 @@ export default function App() {
     });
     if (!d) return "";
     setConversationId(d.id);
+    const persona = personas.find((p) => p.id === personaId);
+    if (persona?.greeting) {
+      await fetch(`/api/conversations/${d.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "assistant", content: persona.greeting }),
+      });
+    }
     loadConversations();
     return d.id;
   }
