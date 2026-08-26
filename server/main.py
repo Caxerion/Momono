@@ -1,10 +1,10 @@
-import uuid
-import os
 import hashlib
+import os
+import uuid
 from datetime import datetime, timezone
 
 from db import connect, init_db
-from fastapi import FastAPI, Request, UploadFile, File
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from llm import load_config, stream_chat
 
@@ -199,7 +199,7 @@ def delete_persona(pid: str):
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
 
 @app.post("/api/personas/{pid}/avatar")
-async def upload_persona_avatar(pid: str, avatar: UploadFile = File(...)):
+async def upload_persona_avatar(pid: str, avatar: UploadFile = File(...)):  # noqa: B008
     ext = os.path.splitext(avatar.filename or "")[1].lower()
     if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
         return {"error": "unsupported format"}
@@ -209,7 +209,7 @@ async def upload_persona_avatar(pid: str, avatar: UploadFile = File(...)):
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     file_hash = hashlib.md5(content).hexdigest()[:12]
     filename = f"persona_{pid}_{file_hash}{ext}"
-    with open(os.path.join(UPLOAD_DIR, filename), "wb") as f:
+    with open(os.path.join(UPLOAD_DIR, filename), "wb") as f:  # noqa: ASYNC230
         f.write(content)
     avatar_url = f"/uploads/{filename}"
     with connect() as conn:
