@@ -80,9 +80,12 @@ func run() {
 	mux.HandleFunc("POST /api/auth/logout", auth.LogoutHandler)
 	mux.HandleFunc("GET /api/auth/me", auth.ProfileHandler)
 	mux.HandleFunc("PUT /api/auth/profile", auth.UpdateProfileHandler)
+	mux.HandleFunc("POST /api/auth/avatar", auth.AvatarUploadHandler)
+	mux.HandleFunc("DELETE /api/auth/avatar", auth.AvatarDeleteHandler)
 	mux.HandleFunc("GET /api/auth/github", auth.GitHubLoginHandler)
 	mux.HandleFunc("GET /api/auth/github/callback", auth.GitHubCallbackHandler)
 	mux.Handle("/api/", auth.RequireAuth(proxy))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 	mux.Handle("/", http.FileServer(http.Dir(distDir)))
 
 	srv := &http.Server{Addr: ":" + webPort, Handler: mux}

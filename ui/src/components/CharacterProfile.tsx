@@ -23,7 +23,7 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
 
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
         <div className="flex flex-col items-center mb-8">
-          <Avatar name={persona.name} size={96} />
+          <Avatar name={persona.name} size={96} src={persona.avatar_url} />
           <h1 className="mt-4 text-2xl font-bold">{persona.name}</h1>
           {persona.title && (
             <p className="text-sm text-zinc-500 mt-1">{persona.title}</p>

@@ -1,8 +1,10 @@
 import uuid
+import os
+import hashlib
 from datetime import datetime, timezone
 
 from db import connect, init_db
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.responses import StreamingResponse
 from llm import load_config, stream_chat
 
@@ -166,10 +168,11 @@ async def create_persona(req: Request):
     about = data.get("about", "")
     greeting = data.get("greeting", "")
     personality = data.get("personality", "")
+    created_by = data.get("created_by", "")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_at) VALUES (?,?,?,?,?,?,?,?)",
-            (pid, name, title, about, about, greeting, personality, now()),
+            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            (pid, name, title, about, about, greeting, personality, created_by, now()),
         )
         conn.commit()
     return {"id": pid, "name": name}
@@ -190,6 +193,39 @@ async def update_persona(pid: str, req: Request):
 def delete_persona(pid: str):
     with connect() as conn:
         conn.execute("DELETE FROM personas WHERE id=?", (pid,))
+        conn.commit()
+    return {"ok": True}
+
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "uploads")
+
+@app.post("/api/personas/{pid}/avatar")
+async def upload_persona_avatar(pid: str, avatar: UploadFile = File(...)):
+    ext = os.path.splitext(avatar.filename or "")[1].lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
+        return {"error": "unsupported format"}
+    content = await avatar.read()
+    if len(content) > 5 * 1024 * 1024:
+        return {"error": "file too large (max 5MB)"}
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    file_hash = hashlib.md5(content).hexdigest()[:12]
+    filename = f"persona_{pid}_{file_hash}{ext}"
+    with open(os.path.join(UPLOAD_DIR, filename), "wb") as f:
+        f.write(content)
+    avatar_url = f"/uploads/{filename}"
+    with connect() as conn:
+        conn.execute("UPDATE personas SET avatar_url=? WHERE id=?", (avatar_url, pid))
+        conn.commit()
+    return {"avatar_url": avatar_url}
+
+@app.delete("/api/personas/{pid}/avatar")
+async def delete_persona_avatar(pid: str):
+    with connect() as conn:
+        row = conn.execute("SELECT avatar_url FROM personas WHERE id=?", (pid,)).fetchone()
+        if row and row["avatar_url"]:
+            file_path = os.path.join(UPLOAD_DIR, os.path.basename(row["avatar_url"]))
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        conn.execute("UPDATE personas SET avatar_url=NULL WHERE id=?", (pid,))
         conn.commit()
     return {"ok": True}
 

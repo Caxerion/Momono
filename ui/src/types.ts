@@ -8,10 +8,13 @@ export type Persona = {
   about?: string;
   greeting?: string;
   personality?: string;
+  created_by?: string;
+  avatar_url?: string | null;
 };
 export type UserProfile = {
   username: string;
   email: string;
   display_name: string;
   about_me: string;
+  avatar_url?: string | null;
 };

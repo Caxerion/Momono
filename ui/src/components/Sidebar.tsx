@@ -98,7 +98,7 @@ export default function Sidebar(p: Props) {
                       onClick={() => p.onSelectPersona(ps.id)}
                       className="flex items-center gap-2.5 flex-1 p-2 min-w-0"
                     >
-                      <Avatar name={ps.name} size={28} />
+                      <Avatar name={ps.name} size={28} src={ps.avatar_url} />
                       <div className="min-w-0 flex-1 text-left">
                         <span className="block truncate text-sm">{ps.name}</span>
                         {ps.title && (
@@ -156,7 +156,7 @@ export default function Sidebar(p: Props) {
             onClick={p.onOpenSettings}
             className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 w-full text-left"
           >
-            <Avatar name={p.userProfile.username} size={36} />
+            <Avatar name={p.userProfile.username} size={36} src={p.userProfile.avatar_url} />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold truncate">
                 {p.userProfile.display_name || p.userProfile.username}

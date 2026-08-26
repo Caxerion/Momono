@@ -44,6 +44,7 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		"ALTER TABLE users ADD COLUMN github_id TEXT",
 		"ALTER TABLE users ADD COLUMN display_name TEXT",
 		"ALTER TABLE users ADD COLUMN about_me TEXT",
+		"ALTER TABLE users ADD COLUMN avatar_url TEXT",
 	} {
 		d.Exec(col)
 	}

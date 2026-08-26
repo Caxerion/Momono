@@ -353,6 +353,7 @@ export default function App() {
           <CreateCharacter
             persona={editingPersona}
             token={token}
+            createdBy={userProfile?.username ?? ""}
             onBack={() => { setCreateCharacterOpen(false); setEditingPersona(null); }}
             onSaved={loadPersonas}
           />
@@ -361,7 +362,10 @@ export default function App() {
             profile={userProfile}
             token={token}
             onBack={() => setSettingsOpen(false)}
-            onSaved={(updated) => setUserProfile(updated)}
+            onSaved={(updated) => {
+              setUserProfile(updated);
+              loadProfile();
+            }}
           />
         ) : viewProfilePersona ? (
           <CharacterProfile
@@ -450,6 +454,7 @@ export default function App() {
               onPrevRegen={prevRegen}
               onNextRegen={nextRegen}
               busy={busy}
+              userProfile={userProfile}
             />
           </>
         ) : (
@@ -479,6 +484,7 @@ export default function App() {
               onPrevRegen={prevRegen}
               onNextRegen={nextRegen}
               busy={busy}
+              userProfile={userProfile}
             />
           </>
         )}

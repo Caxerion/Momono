@@ -1,24 +1,59 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Avatar from "./Avatar";
 import type { Persona } from "../types";
 
 type Props = {
   persona: Persona | null;
   token: string | null;
+  createdBy: string;
   onBack: () => void;
   onSaved: () => void;
 };
 
-export default function CreateCharacter({ persona, token, onBack, onSaved }: Props) {
+export default function CreateCharacter({ persona, token, createdBy, onBack, onSaved }: Props) {
   const [name, setName] = useState(persona?.name ?? "");
   const [title, setTitle] = useState(persona?.title ?? "");
   const [about, setAbout] = useState(persona?.about ?? "");
   const [greeting, setGreeting] = useState(persona?.greeting ?? "");
   const [personality, setPersonality] = useState(persona?.personality ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(persona?.avatar_url ?? "");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAvatar(pid: string, file: File) {
+    const form = new FormData();
+    form.append("avatar", file);
+    const r = await fetch(`/api/personas/${pid}/avatar`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (r.ok) {
+      const d = await r.json();
+      setAvatarUrl(d.avatar_url);
+    }
+  }
+
+  async function removeAvatar() {
+    if (!persona) {
+      setAvatarUrl("");
+      setAvatarFile(null);
+      return;
+    }
+    const r = await fetch(`/api/personas/${persona.id}/avatar`, {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (r.ok) {
+      setAvatarUrl("");
+      setAvatarFile(null);
+    }
+  }
 
   async function save() {
     setBusy(true);
-    const body = JSON.stringify({ name, title, about, greeting, personality });
+    const body = JSON.stringify({ name, title, about, greeting, personality, created_by: persona ? undefined : createdBy });
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -29,12 +64,19 @@ export default function CreateCharacter({ persona, token, onBack, onSaved }: Pro
         headers,
         body,
       });
+      if (avatarFile) {
+        await uploadAvatar(persona.id, avatarFile);
+      }
     } else {
-      await fetch("/api/personas", {
+      const r = await fetch("/api/personas", {
         method: "POST",
         headers,
         body,
       });
+      const d = await r.json();
+      if (d.id && avatarFile) {
+        await uploadAvatar(d.id, avatarFile);
+      }
     }
     setBusy(false);
     onSaved();
@@ -66,6 +108,50 @@ export default function CreateCharacter({ persona, token, onBack, onSaved }: Pro
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative">
+            <button
+              className="relative group rounded-full overflow-hidden"
+              onClick={() => fileRef.current?.click()}
+            >
+              <Avatar name={name || "?"} src={avatarUrl} size={96} />
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-white text-xs font-medium">Change</span>
+              </div>
+            </button>
+            {avatarUrl && (
+              <button
+                onClick={removeAvatar}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 shadow"
+                title="Remove photo"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setAvatarFile(file);
+                setAvatarUrl(URL.createObjectURL(file));
+              }
+              e.target.value = "";
+            }}
+          />
+          <p className="text-xs text-zinc-400 mt-2">Click to upload photo</p>
+        </div>
+
         <label className="block text-sm font-medium mb-1">Name</label>
         <input
           className="w-full mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800"

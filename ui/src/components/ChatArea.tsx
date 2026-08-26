@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import Avatar from "./Avatar";
-import type { Message, Persona } from "../types";
+import type { Message, Persona, UserProfile } from "../types";
 
 function renderText(text: string) {
   if (!text) return null;
@@ -54,6 +54,7 @@ type Props = {
   onPrevRegen: (groupIdx: number) => void;
   onNextRegen: (groupIdx: number, max: number) => void;
   busy: boolean;
+  userProfile?: UserProfile | null;
 };
 
 export default function ChatArea(p: Props) {
@@ -73,7 +74,7 @@ export default function ChatArea(p: Props) {
   return (
     <main className="flex-1 flex flex-col bg-white dark:bg-zinc-950 min-h-0">
       <header className="flex items-center gap-3 p-3 border-b border-zinc-200 dark:border-zinc-800">
-        <Avatar name={p.persona?.name ?? "Default"} size={36} />
+        <Avatar name={p.persona?.name ?? "Default"} size={36} src={p.persona?.avatar_url} />
         <span className="font-semibold">{p.persona?.name ?? "Default"}</span>
       </header>
 
@@ -81,6 +82,19 @@ export default function ChatArea(p: Props) {
         {p.messages.length === 0 && (
           <div className="text-center text-zinc-400 mt-10 px-4">
             Mulai chatting with your character...
+          </div>
+        )}
+
+        {p.persona && p.persona.greeting && (
+          <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+            <Avatar name={p.persona.name} size={64} src={p.persona.avatar_url} />
+            <span className="font-bold text-lg">{p.persona.name}</span>
+            {p.persona.title && (
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">{p.persona.title}</span>
+            )}
+            <span className="text-xs text-zinc-400">
+              Created by @{p.persona.created_by || p.userProfile?.username || "Unknown"}
+            </span>
           </div>
         )}
 
@@ -99,7 +113,7 @@ export default function ChatArea(p: Props) {
           if (b.type === "assistant") {
             return (
               <div key={`a-${bi}`} className="flex gap-3">
-                <Avatar name={p.persona?.name ?? "AI"} size={36} />
+                <Avatar name={p.persona?.name ?? "AI"} size={36} src={p.persona?.avatar_url} />
                 <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
                   {renderText(b.msg.content)}
                 </div>
@@ -123,7 +137,7 @@ export default function ChatArea(p: Props) {
                 </div>
               </div>
               <div className="flex gap-3">
-                <Avatar name={p.persona?.name ?? "AI"} size={36} />
+                <Avatar name={p.persona?.name ?? "AI"} size={36} src={p.persona?.avatar_url} />
                 <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
                   {current.content ? (
                     renderText(current.content)

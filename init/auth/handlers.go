@@ -1,10 +1,16 @@
 package auth
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -136,8 +142,8 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid session", http.StatusUnauthorized)
 		return
 	}
-	var username, email, displayName, aboutMe string
-	err = db.QueryRow("SELECT username, email, COALESCE(display_name,''), COALESCE(about_me,'') FROM users WHERE id=?", userID).Scan(&username, &email, &displayName, &aboutMe)
+	var username, email, displayName, aboutMe, avatarUrl string
+	err = db.QueryRow("SELECT username, email, COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,'') FROM users WHERE id=?", userID).Scan(&username, &email, &displayName, &aboutMe, &avatarUrl)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
@@ -148,6 +154,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		"email":        email,
 		"display_name": displayName,
 		"about_me":     aboutMe,
+		"avatar_url":   avatarUrl,
 	})
 }
 
@@ -189,6 +196,89 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to update profile", http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func AvatarUploadHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	token = strings.TrimPrefix(token, "Bearer ")
+	if token == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID, err := ValidateSession(token)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := r.ParseMultipartForm(5 << 20); err != nil {
+		http.Error(w, "file too large (max 5MB)", http.StatusBadRequest)
+		return
+	}
+	file, header, err := r.FormFile("avatar")
+	if err != nil {
+		http.Error(w, "no file provided", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".gif" && ext != ".webp" {
+		http.Error(w, "unsupported format (jpg, png, gif, webp only)", http.StatusBadRequest)
+		return
+	}
+
+	hasher := sha256.New()
+	io.Copy(hasher, file)
+	file.Seek(0, 0)
+	hash := hex.EncodeToString(hasher.Sum(nil))[:12]
+	filename := fmt.Sprintf("user_%d_%s%s", userID, hash, ext)
+
+	uploadDir := "uploads"
+	os.MkdirAll(uploadDir, 0755)
+	dst, err := os.Create(filepath.Join(uploadDir, filename))
+	if err != nil {
+		http.Error(w, "failed to save file", http.StatusInternalServerError)
+		return
+	}
+	defer dst.Close()
+	io.Copy(dst, file)
+
+	avatarURL := "/uploads/" + filename
+	_, err = db.Exec("UPDATE users SET avatar_url=? WHERE id=?", avatarURL, userID)
+	if err != nil {
+		http.Error(w, "failed to update profile", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"avatar_url": avatarURL})
+}
+
+func AvatarDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	token = strings.TrimPrefix(token, "Bearer ")
+	if token == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	userID, err := ValidateSession(token)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var avatarUrl string
+	err = db.QueryRow("SELECT COALESCE(avatar_url,'') FROM users WHERE id=?", userID).Scan(&avatarUrl)
+	if err != nil {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+	if avatarUrl != "" {
+		os.Remove("." + avatarUrl)
+	}
+	db.Exec("UPDATE users SET avatar_url=NULL WHERE id=?", userID)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }

@@ -1,4 +1,4 @@
-type Props = { name: string; emoji?: string; size?: number };
+type Props = { name: string; emoji?: string; size?: number; src?: string | null };
 
 const COLORS = [
   "bg-rose-500",
@@ -15,7 +15,17 @@ function hash(s: string): number {
   return h;
 }
 
-export default function Avatar({ name, emoji, size = 40 }: Props) {
+export default function Avatar({ name, emoji, size = 40, src }: Props) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="rounded-full object-cover shrink-0"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   const color = COLORS[hash(name) % COLORS.length];
   return (
     <div

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import Avatar from "./Avatar";
 import type { UserProfile } from "../types";
 
 type Props = {
@@ -12,9 +13,41 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
   const [username, setUsername] = useState(profile.username);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [aboutMe, setAboutMe] = useState(profile.about_me);
+  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? "");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAvatar(file: File) {
+    setUploading(true);
+    const form = new FormData();
+    form.append("avatar", file);
+    const r = await fetch("/api/auth/avatar", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (r.ok) {
+      const d = await r.json();
+      setAvatarUrl(d.avatar_url);
+    } else {
+      const text = await r.text();
+      setError(text || "Failed to upload avatar");
+    }
+    setUploading(false);
+  }
+
+  async function removeAvatar() {
+    const r = await fetch("/api/auth/avatar", {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (r.ok) {
+      setAvatarUrl("");
+    }
+  }
 
   async function save() {
     setBusy(true);
@@ -29,11 +62,11 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
     });
     if (r.ok) {
       setSaved(true);
-      onSaved({ ...profile, username, display_name: displayName, about_me: aboutMe });
+      onSaved({ ...profile, username, display_name: displayName, about_me: aboutMe, avatar_url: avatarUrl });
       setTimeout(() => setSaved(false), 2000);
     } else {
       const text = await r.text();
-          setError(text || "Failed to save");
+      setError(text || "Failed to save");
     }
     setBusy(false);
   }
@@ -51,6 +84,51 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative">
+            <button
+              className="relative group rounded-full overflow-hidden"
+              onClick={() => !uploading && fileRef.current?.click()}
+            >
+              <Avatar name={profile.username} src={avatarUrl} size={96} />
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploading ? (
+                  <span className="text-white text-xs font-medium">Uploading...</span>
+                ) : (
+                  <span className="text-white text-xs font-medium">Change</span>
+                )}
+              </div>
+            </button>
+            {avatarUrl && !uploading && (
+              <button
+                onClick={removeAvatar}
+                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 shadow"
+                title="Remove photo"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) uploadAvatar(file);
+              e.target.value = "";
+            }}
+          />
+          <p className="text-xs text-zinc-400 mt-2">Click to change photo</p>
+        </div>
+
         <label className="block text-sm font-medium mb-1">Username</label>
         <input
           className="w-full mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800"
@@ -85,10 +163,10 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
           </button>
           <button
             className="px-5 py-2.5 rounded-lg text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
-            disabled={busy || !username}
+            disabled={busy || uploading || !username}
             onClick={save}
           >
-            Save
+            {uploading ? "Uploading..." : "Save"}
           </button>
           {saved && (
             <span className="text-sm text-green-600 dark:text-green-400">Saved!</span>
