@@ -72,14 +72,18 @@ async def chat(req: Request):
     user_msg = data.get("message", "")
     persona_id = data.get("persona_id")
     persona_prompt = data.get("system_prompt", "")
+    is_regenerate = data.get("is_regenerate", False)
+    regenerate_index = data.get("regenerate_index", 0)
     if persona_id:
         with connect() as conn:
             row = conn.execute(
                 "SELECT about, system_prompt, greeting FROM personas WHERE id=?", (persona_id,)
             ).fetchone()
         if row:
-            persona_prompt = row["about"] or row["system_prompt"] or ""
+            persona_about = row["about"] or row["system_prompt"] or ""
             greeting = row["greeting"] or ""
+            if persona_about:
+                persona_prompt = persona_about + "\n\n" + persona_prompt
         else:
             greeting = ""
     else:
@@ -105,7 +109,7 @@ async def chat(req: Request):
 
     async def event_stream():
         acc = ""
-        if cid:
+        if cid and not is_regenerate:
             with connect() as conn:
                 conn.execute(
                     "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?,?,?,?)",
@@ -118,8 +122,8 @@ async def chat(req: Request):
         if cid:
             with connect() as conn:
                 conn.execute(
-                    "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?,?,?,?)",
-                    (cid, "assistant", acc, now()),
+                    "INSERT INTO messages (conversation_id, role, content, regenerate_index, created_at) VALUES (?,?,?,?,?)",
+                    (cid, "assistant", acc, regenerate_index, now()),
                 )
                 conn.execute(
                     "UPDATE conversations SET updated_at=? WHERE id=?",

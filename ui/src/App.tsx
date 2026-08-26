@@ -28,6 +28,7 @@ export default function App() {
   const [dark, setDark] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [regenView, setRegenView] = useState<Record<number, number>>({});
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -92,11 +93,13 @@ export default function App() {
       const msgs = await getJSON(`/api/conversations/${latest.id}/messages`);
       if (msgs) {
         setMessages(
-          msgs.map((m: { role: string; content: string }) => ({
+          msgs.map((m: { role: string; content: string; regenerate_index?: number }) => ({
             role: m.role as "user" | "assistant",
             content: m.content,
+            regenerate_index: m.regenerate_index ?? 0,
           }))
         );
+        setRegenView({});
       }
     } else if (persona?.greeting) {
       setMessages([{ role: "assistant", content: persona.greeting }]);
@@ -118,17 +121,25 @@ export default function App() {
     const d = await getJSON(`/api/conversations/${id}/messages`);
     if (!d) return;
     setMessages(
-      d.map((m: { role: string; content: string }) => ({
+      d.map((m: { role: string; content: string; regenerate_index?: number }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
+        regenerate_index: m.regenerate_index ?? 0,
       }))
     );
+    setRegenView({});
   }
 
   function handleNewChat() {
     setConversationId(null);
-    setMessages([]);
     setShowHistory(false);
+    setRegenView({});
+    const persona = personas.find((p) => p.id === personaId);
+    if (persona?.greeting) {
+      setMessages([{ role: "assistant", content: persona.greeting }]);
+    } else {
+      setMessages([]);
+    }
   }
 
   async function handleDeleteHistory(pid: string) {
@@ -156,6 +167,7 @@ export default function App() {
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
+    setRegenView({});
     const cid = await ensureConversation();
     setMessages((m) => [
       ...m,
@@ -193,6 +205,75 @@ export default function App() {
       });
     }
     setBusy(false);
+  }
+
+  async function regenerate() {
+    if (busy || !conversationId) return;
+    let lastUserIdx = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") { lastUserIdx = i; break; }
+    }
+    if (lastUserIdx === -1) return;
+    const lastUserMsg = messages[lastUserIdx];
+
+    let maxIdx = 0;
+    for (let i = lastUserIdx + 1; i < messages.length; i++) {
+      if (messages[i].role !== "assistant") break;
+      if ((messages[i].regenerate_index ?? 0) >= maxIdx) maxIdx = (messages[i].regenerate_index ?? 0) + 1;
+    }
+    if (maxIdx >= 25) return;
+    const nextIdx = maxIdx;
+
+    setBusy(true);
+    setMessages((m) => [...m, { role: "assistant", content: "", regenerate_index: nextIdx }]);
+    setRegenView((v) => ({ ...v, [lastUserIdx]: nextIdx }));
+
+    const r = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        message: lastUserMsg.content,
+        persona_id: personaId,
+        system_prompt: DEFAULT_PROMPT,
+        is_regenerate: true,
+        regenerate_index: nextIdx,
+      }),
+    });
+    if (r.status === 401) {
+      setToken(null);
+      localStorage.removeItem("token");
+      setBusy(false);
+      return;
+    }
+    const reader = r.body!.getReader();
+    const dec = new TextDecoder();
+    let acc = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      acc += dec.decode(value, { stream: true });
+      setMessages((m) => {
+        const c = [...m];
+        c[c.length - 1] = { role: "assistant", content: acc, regenerate_index: nextIdx };
+        return c;
+      });
+    }
+    setBusy(false);
+  }
+
+  function prevRegen(groupIdx: number) {
+    setRegenView((v) => {
+      const cur = v[groupIdx] ?? 0;
+      return { ...v, [groupIdx]: Math.max(0, cur - 1) };
+    });
+  }
+
+  function nextRegen(groupIdx: number, max: number) {
+    setRegenView((v) => {
+      const cur = v[groupIdx] ?? 0;
+      return { ...v, [groupIdx]: Math.min(max, cur + 1) };
+    });
   }
 
   function handleLogin(newToken: string) {
@@ -321,6 +402,10 @@ export default function App() {
           input={input}
           setInput={setInput}
           onSend={send}
+          onRegenerate={regenerate}
+          regenView={regenView}
+          onPrevRegen={prevRegen}
+          onNextRegen={nextRegen}
           busy={busy}
         />
       </div>

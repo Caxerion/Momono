@@ -1,4 +1,4 @@
-export type Message = { role: "user" | "assistant"; content: string };
+export type Message = { role: "user" | "assistant"; content: string; regenerate_index?: number };
 export type Conversation = { id: string; title: string; persona_id?: string; updated_at?: string };
 export type Persona = {
   id: string;

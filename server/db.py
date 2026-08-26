@@ -52,6 +52,11 @@ def init_db() -> None:
                 cur.execute(f"ALTER TABLE personas ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
                 pass
+        for col in ("regenerate_count", "regenerate_index"):
+            try:
+                cur.execute(f"ALTER TABLE messages ADD COLUMN {col} INTEGER DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
 
 

@@ -3,17 +3,44 @@ import Avatar from "./Avatar";
 import type { Message, Persona } from "../types";
 
 function renderText(text: string) {
-  const parts = text.split(/(\*[^*]+\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return (
-        <em key={i} className="italic opacity-80">
-          {part.slice(1, -1)}
-        </em>
-      );
+  if (!text) return null;
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const html = escaped.replace(/\*([^*]+)\*/g, '<em class="italic opacity-80">$1</em>');
+  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+type Bubble =
+  | { type: "user"; msg: Message }
+  | { type: "assistant"; msg: Message }
+  | { type: "group"; userMsg: Message; responses: Message[] };
+
+function buildBubbles(messages: Message[]): Bubble[] {
+  const bubbles: Bubble[] = [];
+  let i = 0;
+  while (i < messages.length) {
+    const m = messages[i];
+    if (m.role === "user") {
+      const userMsg = m;
+      const responses: Message[] = [];
+      i++;
+      while (i < messages.length && messages[i].role === "assistant") {
+        responses.push(messages[i]);
+        i++;
+      }
+      if (responses.length > 0) {
+        bubbles.push({ type: "group", userMsg, responses });
+      } else {
+        bubbles.push({ type: "user", msg: userMsg });
+      }
+    } else {
+      bubbles.push({ type: "assistant", msg: m });
+      i++;
     }
-    return <span key={i}>{part}</span>;
-  });
+  }
+  return bubbles;
 }
 
 type Props = {
@@ -22,6 +49,10 @@ type Props = {
   input: string;
   setInput: (s: string) => void;
   onSend: () => void;
+  onRegenerate: () => void;
+  regenView: Record<number, number>;
+  onPrevRegen: (groupIdx: number) => void;
+  onNextRegen: (groupIdx: number, max: number) => void;
   busy: boolean;
 };
 
@@ -30,6 +61,14 @@ export default function ChatArea(p: Props) {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [p.messages]);
+
+  const bubbles = buildBubbles(p.messages);
+  const lastGroupIdx = bubbles.length - 1;
+  const lastBubble = bubbles[lastGroupIdx];
+  const isLastGroupComplete =
+    lastBubble?.type === "group" &&
+    lastBubble.responses.length > 0 &&
+    lastBubble.responses[lastBubble.responses.length - 1].content !== "";
 
   return (
     <main className="flex-1 flex flex-col bg-white dark:bg-zinc-950">
@@ -44,27 +83,91 @@ export default function ChatArea(p: Props) {
             Mulai ngobrol dengan karaktermu...
           </div>
         )}
-        {p.messages.map((m, i) => (
-          <div
-            key={i}
-            className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}
-          >
-            <Avatar
-              name={m.role === "user" ? "You" : p.persona?.name ?? "AI"}
-              emoji={m.role === "user" ? "🙂" : undefined}
-              size={36}
-            />
-            <div
-              className={`max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap ${
-                m.role === "user"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-zinc-100 dark:bg-zinc-800"
-              }`}
-            >
-              {renderText(m.content)}
+
+        {bubbles.map((b, bi) => {
+          if (b.type === "user") {
+            return (
+              <div key={`u-${bi}`} className="flex gap-3 flex-row-reverse">
+                <Avatar name="You" emoji="🙂" size={36} />
+                <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
+                  {renderText(b.msg.content)}
+                </div>
+              </div>
+            );
+          }
+
+          if (b.type === "assistant") {
+            return (
+              <div key={`a-${bi}`} className="flex gap-3">
+                <Avatar name={p.persona?.name ?? "AI"} size={36} />
+                <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
+                  {renderText(b.msg.content)}
+                </div>
+              </div>
+            );
+          }
+
+          const total = b.responses.length;
+          const viewing = p.regenView[bi] ?? (total - 1);
+          const safeViewing = Math.min(viewing, total - 1);
+          const current = b.responses[safeViewing];
+          const isLast = bi === lastGroupIdx;
+          const showRegenBar = isLast && !p.busy && total > 0 && current.content !== "";
+
+          return (
+            <div key={`g-${bi}`}>
+              <div className="flex gap-3 flex-row-reverse">
+                <Avatar name="You" emoji="🙂" size={36} />
+                <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
+                  {renderText(b.userMsg.content)}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Avatar name={p.persona?.name ?? "AI"} size={36} />
+                <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
+                  {current.content ? (
+                    renderText(current.content)
+                  ) : p.busy && isLast ? (
+                    <LoadingDots />
+                  ) : null}
+                </div>
+              </div>
+
+              {showRegenBar && (
+                <div className="flex items-center gap-1 mt-1 ml-12">
+                  {total > 1 && (
+                    <>
+                      <button
+                        onClick={() => p.onPrevRegen(bi)}
+                        disabled={safeViewing === 0}
+                        className="text-xs px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ‹
+                      </button>
+                      <span className="text-xs text-zinc-400 tabular-nums">
+                        {safeViewing + 1}/{total}
+                      </span>
+                      <button
+                        onClick={() => p.onNextRegen(bi, total - 1)}
+                        disabled={safeViewing === total - 1}
+                        className="text-xs px-1.5 py-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        ›
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={p.onRegenerate}
+                    disabled={total >= 25}
+                    className="text-xs px-2 py-0.5 rounded-lg text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    🔄 {total}/25
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
         <div ref={endRef} />
       </div>
 
@@ -96,5 +199,15 @@ export default function ChatArea(p: Props) {
         </button>
       </form>
     </main>
+  );
+}
+
+function LoadingDots() {
+  return (
+    <span className="inline-flex gap-1 items-center h-5">
+      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:150ms]" />
+      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:300ms]" />
+    </span>
   );
 }
