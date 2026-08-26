@@ -52,7 +52,7 @@ export default function Login({ onLogin }: Props) {
 
       onLogin(data.token);
     } catch {
-      setError("Tidak bisa terhubung ke server");
+      setError("Cannot connect to server");
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ export default function Login({ onLogin }: Props) {
 
         <label className="block mb-3">
           <span className="text-sm text-zinc-600 dark:text-zinc-400">
-            {mode === "login" ? "Username atau Email" : "Username"}
+            {mode === "login" ? "Username or Email" : "Username"}
           </span>
           <input
             type="text"
@@ -123,10 +123,10 @@ export default function Login({ onLogin }: Props) {
           className="w-full rounded-lg bg-indigo-600 text-white py-2 font-medium text-sm hover:bg-indigo-700 disabled:opacity-50"
         >
           {loading
-            ? "Memproses..."
+            ? "Processing..."
             : mode === "login"
-            ? "Masuk"
-            : "Daftar"}
+            ? "Login"
+            : "Register"}
         </button>
 
         <button
@@ -143,7 +143,7 @@ export default function Login({ onLogin }: Props) {
         </button>
 
         <p className="text-xs text-center mt-4 text-zinc-500">
-          {mode === "login" ? "Belum punya akun? " : "Sudah punya akun? "}
+          {mode === "login" ? "Don't have an account? " : "Already have an account? "}
           <button
             type="button"
             onClick={() => {
@@ -153,7 +153,7 @@ export default function Login({ onLogin }: Props) {
             }}
             className="text-indigo-600 hover:underline"
           >
-            {mode === "login" ? "Daftar" : "Masuk"}
+            {mode === "login" ? "Register" : "Login"}
           </button>
         </p>
       </form>

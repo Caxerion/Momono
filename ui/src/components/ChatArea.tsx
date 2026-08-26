@@ -80,7 +80,7 @@ export default function ChatArea(p: Props) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {p.messages.length === 0 && (
           <div className="text-center text-zinc-400 mt-10 px-4">
-            Mulai ngobrol dengan karaktermu...
+            Mulai chatting with your character...
           </div>
         )}
 
@@ -195,7 +195,7 @@ export default function ChatArea(p: Props) {
           className="px-5 rounded-xl bg-indigo-600 text-white font-medium disabled:opacity-50"
           disabled={p.busy}
         >
-          Kirim
+          Send
         </button>
       </form>
     </main>

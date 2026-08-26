@@ -32,13 +32,13 @@ func GitHubLoginHandler(w http.ResponseWriter, r *http.Request) {
 func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		http.Error(w, "code tidak ditemukan", http.StatusBadRequest)
+		http.Error(w, "code not found", http.StatusBadRequest)
 		return
 	}
 
 	token, err := githubOAuth.Exchange(r.Context(), code)
 	if err != nil {
-		http.Error(w, "gagal menukar code", http.StatusInternalServerError)
+		http.Error(w, "failed to exchange code", http.StatusInternalServerError)
 		log.Println("github oauth exchange error:", err)
 		return
 	}
@@ -46,7 +46,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	client := githubOAuth.Client(r.Context(), token)
 	resp, err := client.Get("https://api.github.com/user")
 	if err != nil {
-		http.Error(w, "gagal mengambil data user", http.StatusInternalServerError)
+		http.Error(w, "failed to fetch user data", http.StatusInternalServerError)
 		log.Println("github api error:", err)
 		return
 	}
@@ -59,7 +59,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := json.Unmarshal(body, &ghUser); err != nil {
-		http.Error(w, "gagal parse data user", http.StatusInternalServerError)
+		http.Error(w, "failed to parse user data", http.StatusInternalServerError)
 		return
 	}
 
@@ -68,7 +68,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		userID, err = CreateUserWithGithub(githubID, ghUser.Login, ghUser.Email)
 		if err != nil {
-			http.Error(w, "gagal membuat user", http.StatusInternalServerError)
+			http.Error(w, "failed to create user", http.StatusInternalServerError)
 			log.Println("github: create user error:", err)
 			return
 		}
@@ -76,7 +76,7 @@ func GitHubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	sessionToken, err := CreateSession(userID)
 	if err != nil {
-		http.Error(w, "gagal membuat session", http.StatusInternalServerError)
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
 		log.Println("github: create session error:", err)
 		return
 	}

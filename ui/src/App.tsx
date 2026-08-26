@@ -3,17 +3,18 @@ import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import CreateCharacter from "./components/CreateCharacter";
 import CharacterProfile from "./components/CharacterProfile";
+import Settings from "./components/Settings";
 import Login from "./components/Login";
-import type { Conversation, Message, Persona } from "./types";
+import type { Conversation, Message, Persona, UserProfile } from "./types";
 
 const DEFAULT_PROMPT =
-  "Kamu HARUS membalas dalam format roleplay. " +
-  "Setiap respon WAJIB mengandung aksi dalam tanda bintang *seperti ini*. " +
-  "Contoh yang BENAR: *dia berjalan mendekat dan duduk di sebelahmu* Hei, lagi ngapain? " +
-  "Contoh yang SALAH: Hai, lagi ngapain? (ini tanpa aksi, JANGAN lakukan ini). " +
-  "Gunakan *asterisk* untuk: aksi, gerakan tubuh, ekspresi wajah, perasaan, suara, deskripsi situasi. " +
-  "Campurkan aksi dan dialog dalam satu paragraf secara natural. " +
-  "Jangan pernah memulai respon tanpa aksi asterisk terlebih dahulu.";
+  "You MUST reply in roleplay format. " +
+  "Every response MUST contain actions in asterisks *like this*. " +
+  "CORRECT example: *he walks closer and sits beside you* Hey, what are you doing? " +
+  "WRONG example: Hey, what are you doing? (no action, DO NOT do this). " +
+  "Use *asterisks* for: actions, body movements, facial expressions, feelings, sounds, situation descriptions. " +
+  "Mix actions and dialogue in one paragraph naturally. " +
+  "Never start a response without an asterisk action first.";
 
 export default function App() {
   const [token, setToken] = useState<string | null>(
@@ -32,7 +33,8 @@ export default function App() {
   const [viewProfilePersona, setViewProfilePersona] = useState<Persona | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
-  const [userProfile, setUserProfile] = useState<{ username: string; email: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -100,6 +102,7 @@ export default function App() {
     setCreateCharacterOpen(false);
     setEditingPersona(null);
     setViewProfilePersona(null);
+    setSettingsOpen(false);
     const persona = personas.find((p) => p.id === pid);
     const data = await getJSON(`/api/conversations?persona_id=${pid}`);
     if (data && data.length > 0) {
@@ -328,6 +331,7 @@ export default function App() {
         onNewPersona={() => { setEditingPersona(null); setCreateCharacterOpen(true); }}
         onEditPersona={(p) => { setEditingPersona(p); setCreateCharacterOpen(true); }}
         onDeleteHistory={handleDeleteHistory}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
       <div className="flex-1 flex flex-col relative min-h-0">
         {createCharacterOpen ? (
@@ -336,6 +340,13 @@ export default function App() {
             token={token}
             onBack={() => { setCreateCharacterOpen(false); setEditingPersona(null); }}
             onSaved={loadPersonas}
+          />
+        ) : settingsOpen && userProfile ? (
+          <Settings
+            profile={userProfile}
+            token={token}
+            onBack={() => setSettingsOpen(false)}
+            onSaved={(updated) => setUserProfile(updated)}
           />
         ) : viewProfilePersona ? (
           <CharacterProfile
@@ -380,21 +391,21 @@ export default function App() {
                 className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                 onClick={handleLogout}
               >
-                Keluar
+                Logout
               </button>
             </div>
 
             {showHistory && (
               <div className="absolute top-[45px] right-0 w-72 h-[calc(100%-45px)] border-l border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 z-10 flex flex-col">
                 <div className="p-3 font-semibold text-sm border-b border-zinc-200 dark:border-zinc-700">
-                  History Chat
+                  History
                 </div>
                 <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
                   <button
                     onClick={handleNewChat}
                     className="w-full text-left p-2.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-dashed border-indigo-300 dark:border-indigo-700"
                   >
-                    + Chat Baru
+                    + New Chat
                   </button>
                   {conversations.map((c) => (
                     <button
@@ -439,7 +450,7 @@ export default function App() {
                 className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
                 onClick={handleLogout}
               >
-                Keluar
+                Logout
               </button>
             </div>
             <ChatArea

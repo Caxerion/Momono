@@ -42,6 +42,8 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	for _, col := range []string{
 		"ALTER TABLE users ADD COLUMN email TEXT",
 		"ALTER TABLE users ADD COLUMN github_id TEXT",
+		"ALTER TABLE users ADD COLUMN display_name TEXT",
+		"ALTER TABLE users ADD COLUMN about_me TEXT",
 	} {
 		d.Exec(col)
 	}
@@ -74,7 +76,7 @@ func ValidateSession(token string) (int64, error) {
 		"SELECT user_id, expires_at FROM sessions WHERE token=?", token,
 	).Scan(&userID, &expiresAt)
 	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("session tidak ditemukan")
+		return 0, fmt.Errorf("session not found")
 	}
 	if err != nil {
 		return 0, err
@@ -85,7 +87,7 @@ func ValidateSession(token string) (int64, error) {
 	}
 	if time.Now().After(exp) {
 		db.Exec("DELETE FROM sessions WHERE token=?", token)
-		return 0, fmt.Errorf("session sudah expired")
+		return 0, fmt.Errorf("session expired")
 	}
 	return userID, nil
 }

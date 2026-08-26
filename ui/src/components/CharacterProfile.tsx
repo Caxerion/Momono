@@ -16,9 +16,9 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
           onClick={onBack}
           className="rounded-lg px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-800"
         >
-          ← Kembali
+          ← Back
         </button>
-        <span className="font-semibold text-sm">Profil Karakter</span>
+        <span className="font-semibold text-sm">Character Profile</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 max-w-2xl mx-auto w-full">
@@ -52,7 +52,7 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
         )}
 
         {!persona.about && !persona.personality && !persona.greeting && (
-          <p className="text-center text-zinc-400 text-sm">Belum ada deskripsi untuk karakter ini.</p>
+          <p className="text-center text-zinc-400 text-sm">          No description yet for this character.</p>
         )}
 
         <div className="flex justify-center gap-3 mt-8 pb-6">
@@ -60,7 +60,7 @@ export default function CharacterProfile({ persona, onBack, onEdit, onChat }: Pr
             onClick={() => onEdit(persona)}
             className="px-5 py-2.5 rounded-lg text-sm font-medium bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 dark:hover:bg-zinc-600"
           >
-            Edit Karakter
+            Edit Character
           </button>
           <button
             onClick={() => onChat(persona.id)}

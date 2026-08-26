@@ -9,3 +9,9 @@ export type Persona = {
   greeting?: string;
   personality?: string;
 };
+export type UserProfile = {
+  username: string;
+  email: string;
+  display_name: string;
+  about_me: string;
+};

@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
-import type { Conversation, Persona } from "../types";
+import type { Conversation, Persona, UserProfile } from "../types";
 
 type Props = {
   conversations: Conversation[];
   personas: Persona[];
   personaId: string | null;
-  userProfile: { username: string; email: string } | null;
+  userProfile: UserProfile | null;
   onSelectPersona: (id: string) => void;
   onNewPersona: () => void;
   onEditPersona: (persona: Persona) => void;
   onDeleteHistory: (personaId: string) => void;
+  onOpenSettings: () => void;
 };
 
 export default function Sidebar(p: Props) {
@@ -49,24 +50,10 @@ export default function Sidebar(p: Props) {
 
       <div className="border-t border-zinc-200 dark:border-zinc-700 my-2" />
 
-      {p.userProfile && (
-        <div className="px-3 pb-3">
-          <div className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-100 dark:bg-zinc-800">
-            <Avatar name={p.userProfile.username} size={36} />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold truncate">{p.userProfile.username}</p>
-              <p className="text-xs text-zinc-500 truncate">{p.userProfile.email}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="border-t border-zinc-200 dark:border-zinc-700 my-2" />
-
       <div className="px-3 pb-2">
         <input
           className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          placeholder="Cari karakter..."
+          placeholder="Search characters..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -92,7 +79,7 @@ export default function Sidebar(p: Props) {
               if (filtered.length === 0) {
                 return (
                   <p className="text-xs text-zinc-400 px-2.5 py-2">
-                    {search ? "Tidak ditemukan" : "Belum ada karakter"}
+                    {search ? "Not found" : "No characters yet"}
                   </p>
                 );
               }
@@ -119,7 +106,7 @@ export default function Sidebar(p: Props) {
                         )}
                       </div>
                       {!hasChats && (
-                        <span className="ml-auto text-[10px] text-zinc-400 shrink-0">baru</span>
+                        <span className="ml-auto text-[10px] text-zinc-400 shrink-0">new</span>
                       )}
                     </button>
                     <div className="relative shrink-0" ref={menuOpen === ps.id ? menuRef : undefined}>
@@ -141,7 +128,7 @@ export default function Sidebar(p: Props) {
                             }}
                             className="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
                           >
-                            Edit Karakter
+                            Edit Character
                           </button>
                           <button
                             onClick={() => {
@@ -150,7 +137,7 @@ export default function Sidebar(p: Props) {
                             }}
                             className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
                           >
-                            Hapus History
+                            Delete History
                           </button>
                         </div>
                       )}
@@ -162,6 +149,23 @@ export default function Sidebar(p: Props) {
           </div>
         )}
       </div>
+
+      {p.userProfile && (
+        <div className="mt-auto border-t border-zinc-200 dark:border-zinc-700 px-3 py-3">
+          <button
+            onClick={p.onOpenSettings}
+            className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-700 w-full text-left"
+          >
+            <Avatar name={p.userProfile.username} size={36} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold truncate">
+                {p.userProfile.display_name || p.userProfile.username}
+              </p>
+              <p className="text-xs text-zinc-500 truncate">@{p.userProfile.username}</p>
+            </div>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
