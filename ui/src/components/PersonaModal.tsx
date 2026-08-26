@@ -12,11 +12,12 @@ export default function PersonaModal({ persona, token, onClose, onSaved }: Props
   const [name, setName] = useState(persona?.name ?? "");
   const [about, setAbout] = useState(persona?.about ?? "");
   const [greeting, setGreeting] = useState(persona?.greeting ?? "");
+  const [personality, setPersonality] = useState(persona?.personality ?? "");
   const [busy, setBusy] = useState(false);
 
   async function save() {
     setBusy(true);
-    const body = JSON.stringify({ name, about, greeting });
+    const body = JSON.stringify({ name, about, greeting, personality });
     const headers = {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -55,7 +56,7 @@ export default function PersonaModal({ persona, token, onClose, onSaved }: Props
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-zinc-800 rounded-xl p-5 w-96 text-black dark:text-white"
+        className="bg-white dark:bg-zinc-800 rounded-xl p-5 w-96 max-h-[90vh] overflow-y-auto text-black dark:text-white"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-semibold mb-3">
@@ -83,6 +84,16 @@ export default function PersonaModal({ persona, token, onClose, onSaved }: Props
           onChange={(e) => setGreeting(e.target.value)}
           placeholder="*dia melambaikan tangan* Hei, kamu juga disini?"
         />
+        <label className="block text-sm mb-1">Character's Personality</label>
+        <textarea
+          className="w-full mb-3 rounded border p-2 bg-zinc-100 dark:bg-zinc-700 resize-y"
+          rows={8}
+          maxLength={10000}
+          value={personality}
+          onChange={(e) => setPersonality(e.target.value)}
+          placeholder="Jelaskan kepribadian karakter secara detail: sifat, kebiasaan, cara bicara, nilai-nilai, motivasi, ketakutan, dll."
+        />
+        <p className="text-xs text-zinc-400 -mt-2 mb-3">{personality.length}/10000 karakter</p>
         <div className="flex justify-between items-center">
           {persona ? (
             <button className="text-red-500 text-sm" onClick={remove}>

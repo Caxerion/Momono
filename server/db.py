@@ -35,9 +35,11 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS personas (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
+                title TEXT,
                 system_prompt TEXT NOT NULL,
                 about TEXT,
                 greeting TEXT,
+                personality TEXT,
                 created_at TEXT NOT NULL
             )
             """
@@ -47,7 +49,7 @@ def init_db() -> None:
                 cur.execute(f"ALTER TABLE conversations ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
                 pass
-        for col in ("about", "greeting"):
+        for col in ("about", "greeting", "personality", "title"):
             try:
                 cur.execute(f"ALTER TABLE personas ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:

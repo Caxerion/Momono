@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
-import PersonaModal from "./components/PersonaModal";
+import CreateCharacter from "./components/CreateCharacter";
+import CharacterProfile from "./components/CharacterProfile";
 import Login from "./components/Login";
 import type { Conversation, Message, Persona } from "./types";
 
@@ -26,7 +27,9 @@ export default function App() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [dark, setDark] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createCharacterOpen, setCreateCharacterOpen] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
+  const [viewProfilePersona, setViewProfilePersona] = useState<Persona | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
   const [userProfile, setUserProfile] = useState<{ username: string; email: string } | null>(null);
@@ -94,6 +97,9 @@ export default function App() {
     setConversationId(null);
     setMessages([]);
     setShowHistory(false);
+    setCreateCharacterOpen(false);
+    setEditingPersona(null);
+    setViewProfilePersona(null);
     const persona = personas.find((p) => p.id === pid);
     const data = await getJSON(`/api/conversations?persona_id=${pid}`);
     if (data && data.length > 0) {
@@ -319,11 +325,26 @@ export default function App() {
         personaId={personaId}
         userProfile={userProfile}
         onSelectPersona={handleSelectPersona}
-        onNewPersona={() => setModalOpen(true)}
+        onNewPersona={() => { setEditingPersona(null); setCreateCharacterOpen(true); }}
+        onEditPersona={(p) => { setEditingPersona(p); setCreateCharacterOpen(true); }}
         onDeleteHistory={handleDeleteHistory}
       />
       <div className="flex-1 flex flex-col relative min-h-0">
-        {personaId && currentPersona ? (
+        {createCharacterOpen ? (
+          <CreateCharacter
+            persona={editingPersona}
+            token={token}
+            onBack={() => { setCreateCharacterOpen(false); setEditingPersona(null); }}
+            onSaved={loadPersonas}
+          />
+        ) : viewProfilePersona ? (
+          <CharacterProfile
+            persona={viewProfilePersona}
+            onBack={() => setViewProfilePersona(null)}
+            onEdit={(p) => { setViewProfilePersona(null); setEditingPersona(p); setCreateCharacterOpen(true); }}
+            onChat={(pid) => { setViewProfilePersona(null); handleSelectPersona(pid); }}
+          />
+        ) : personaId && currentPersona ? (
           <>
             <div className="flex items-center p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
               <button
@@ -332,9 +353,12 @@ export default function App() {
               >
                 ←
               </button>
-              <span className="font-semibold text-sm truncate">
+              <button
+                onClick={() => setViewProfilePersona(currentPersona)}
+                className="font-semibold text-sm truncate hover:underline"
+              >
                 {currentPersona.name}
-              </span>
+              </button>
               <div className="flex-1" />
               <button
                 onClick={() => setShowHistory(!showHistory)}
@@ -388,45 +412,51 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            <ChatArea
+              persona={currentPersona}
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              onSend={send}
+              onRegenerate={regenerate}
+              regenView={regenView}
+              onPrevRegen={prevRegen}
+              onNextRegen={nextRegen}
+              busy={busy}
+            />
           </>
         ) : (
-          <div className="flex items-center justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
-            <button
-              className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
-              onClick={() => setDark(!dark)}
-            >
-              {dark ? "☀️ Light" : "🌙 Dark"}
-            </button>
-            <button
-              className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-              onClick={handleLogout}
-            >
-              Keluar
-            </button>
-          </div>
+          <>
+            <div className="flex items-center justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+              <button
+                className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
+                onClick={() => setDark(!dark)}
+              >
+                {dark ? "☀️ Light" : "🌙 Dark"}
+              </button>
+              <button
+                className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                onClick={handleLogout}
+              >
+                Keluar
+              </button>
+            </div>
+            <ChatArea
+              persona={currentPersona}
+              messages={messages}
+              input={input}
+              setInput={setInput}
+              onSend={send}
+              onRegenerate={regenerate}
+              regenView={regenView}
+              onPrevRegen={prevRegen}
+              onNextRegen={nextRegen}
+              busy={busy}
+            />
+          </>
         )}
-
-        <ChatArea
-          persona={currentPersona}
-          messages={messages}
-          input={input}
-          setInput={setInput}
-          onSend={send}
-          onRegenerate={regenerate}
-          regenView={regenView}
-          onPrevRegen={prevRegen}
-          onNextRegen={nextRegen}
-          busy={busy}
-        />
       </div>
-      {modalOpen && (
-        <PersonaModal
-          persona={null}
-          token={token}
-          onClose={() => setModalOpen(false)}
-          onSaved={loadPersonas}
-        />
-      )}
     </div>
   );
 }

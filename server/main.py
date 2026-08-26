@@ -77,13 +77,15 @@ async def chat(req: Request):
     if persona_id:
         with connect() as conn:
             row = conn.execute(
-                "SELECT about, system_prompt, greeting FROM personas WHERE id=?", (persona_id,)
+                "SELECT about, system_prompt, greeting, personality FROM personas WHERE id=?", (persona_id,)
             ).fetchone()
         if row:
             persona_about = row["about"] or row["system_prompt"] or ""
             greeting = row["greeting"] or ""
-            if persona_about:
-                persona_prompt = persona_about + "\n\n" + persona_prompt
+            personality = row["personality"] or ""
+            parts = [p for p in [persona_about, personality] if p]
+            if parts:
+                persona_prompt = "\n\n".join(parts) + "\n\n" + persona_prompt
         else:
             greeting = ""
     else:
@@ -146,12 +148,14 @@ async def create_persona(req: Request):
     data = await req.json()
     pid = str(uuid.uuid4())
     name = data.get("name", "Untitled Bot")
+    title = data.get("title", "")
     about = data.get("about", "")
     greeting = data.get("greeting", "")
+    personality = data.get("personality", "")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO personas (id, name, system_prompt, about, greeting, created_at) VALUES (?,?,?,?,?,?)",
-            (pid, name, about, about, greeting, now()),
+            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (pid, name, title, about, about, greeting, personality, now()),
         )
         conn.commit()
     return {"id": pid, "name": name}
@@ -160,10 +164,11 @@ async def create_persona(req: Request):
 async def update_persona(pid: str, req: Request):
     data = await req.json()
     about = data.get("about", "")
+    personality = data.get("personality", "")
     with connect() as conn:
         conn.execute(
-            "UPDATE personas SET name=?, system_prompt=?, about=?, greeting=? WHERE id=?",
-            (data.get("name", ""), about, about, data.get("greeting", ""), pid),
+            "UPDATE personas SET name=?, title=?, system_prompt=?, about=?, greeting=?, personality=? WHERE id=?",
+            (data.get("name", ""), data.get("title", ""), about, about, data.get("greeting", ""), personality, pid),
         )
         conn.commit()
     return {"ok": True}

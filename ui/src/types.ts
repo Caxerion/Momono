@@ -3,7 +3,9 @@ export type Conversation = { id: string; title: string; persona_id?: string; upd
 export type Persona = {
   id: string;
   name: string;
+  title?: string;
   system_prompt: string;
   about?: string;
   greeting?: string;
+  personality?: string;
 };

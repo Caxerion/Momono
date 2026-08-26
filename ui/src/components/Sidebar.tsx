@@ -9,6 +9,7 @@ type Props = {
   userProfile: { username: string; email: string } | null;
   onSelectPersona: (id: string) => void;
   onNewPersona: () => void;
+  onEditPersona: (persona: Persona) => void;
   onDeleteHistory: (personaId: string) => void;
 };
 
@@ -111,7 +112,12 @@ export default function Sidebar(p: Props) {
                       className="flex items-center gap-2.5 flex-1 p-2 min-w-0"
                     >
                       <Avatar name={ps.name} size={28} />
-                      <span className="truncate">{ps.name}</span>
+                      <div className="min-w-0 flex-1 text-left">
+                        <span className="block truncate text-sm">{ps.name}</span>
+                        {ps.title && (
+                          <span className="block truncate text-xs text-zinc-400">{ps.title}</span>
+                        )}
+                      </div>
                       {!hasChats && (
                         <span className="ml-auto text-[10px] text-zinc-400 shrink-0">baru</span>
                       )}
@@ -128,6 +134,15 @@ export default function Sidebar(p: Props) {
                       </button>
                       {menuOpen === ps.id && (
                         <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg z-20 py-1">
+                          <button
+                            onClick={() => {
+                              p.onEditPersona(ps);
+                              setMenuOpen(null);
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                          >
+                            Edit Karakter
+                          </button>
                           <button
                             onClick={() => {
                               p.onDeleteHistory(ps.id);
