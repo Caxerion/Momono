@@ -258,6 +258,46 @@ async def toggle_persona_reaction(pid: str, req: Request):
         "my_reaction": new_value,
     }
 
+@app.get("/api/personas/{pid}/favorite")
+def get_persona_favorite(pid: str, req: Request):
+    user_id = current_user(req)
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM persona_favorites WHERE persona_id=? AND user_id=?",
+            (pid, user_id),
+        ).fetchone()
+    return {"favorite": row is not None}
+
+
+@app.post("/api/personas/{pid}/favorite")
+async def toggle_persona_favorite(pid: str, req: Request):
+    data = await req.json()
+    user_id = current_user(req)
+    with connect() as conn:
+        row = conn.execute("SELECT id FROM personas WHERE id=?", (pid,)).fetchone()
+        if not row:
+            return {"error": "not found"}
+        existing = conn.execute(
+            "SELECT 1 FROM persona_favorites WHERE persona_id=? AND user_id=?",
+            (pid, user_id),
+        ).fetchone()
+        if data.get("favorite", True):
+            if not existing:
+                conn.execute(
+                    "INSERT INTO persona_favorites (persona_id, user_id, created_at) VALUES (?,?,?)",
+                    (pid, user_id, now()),
+                )
+            favorite = True
+        else:
+            if existing:
+                conn.execute(
+                    "DELETE FROM persona_favorites WHERE persona_id=? AND user_id=?",
+                    (pid, user_id),
+                )
+            favorite = False
+        conn.commit()
+    return {"favorite": favorite}
+
 @app.post("/api/personas")
 async def create_persona(req: Request):
     data = await req.json()
@@ -337,3 +377,19 @@ def delete_persona_conversations(pid: str):
         conn.execute("DELETE FROM conversations WHERE persona_id=?", (pid,))
         conn.commit()
     return {"ok": True}
+
+
+@app.get("/api/user/favorites")
+def list_user_favorites(req: Request):
+    user_id = current_user(req)
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT p.* FROM personas p
+            JOIN persona_favorites f ON f.persona_id = p.id
+            WHERE f.user_id = ?
+            ORDER BY f.created_at DESC
+            """,
+            (user_id,),
+        ).fetchall()
+    return [dict(r) for r in rows]

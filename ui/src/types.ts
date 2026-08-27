@@ -13,12 +13,16 @@ export type Persona = {
   likes?: number;
   dislikes?: number;
   categories?: string;
+  favorite?: boolean;
 };
 export type Category = { name: string };
 export type PersonaReactions = {
   likes: number;
   dislikes: number;
   my_reaction: "like" | "dislike" | null;
+};
+export type PersonaFavorite = {
+  favorite: boolean;
 };
 export type UserProfile = {
   username: string;

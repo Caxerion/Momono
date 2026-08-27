@@ -102,6 +102,16 @@ def init_db() -> None:
             )
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS persona_favorites (
+                persona_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (persona_id, user_id)
+            )
+            """
+        )
         seed_categories(cur)
         conn.commit()
 

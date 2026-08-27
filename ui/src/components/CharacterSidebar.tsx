@@ -9,6 +9,7 @@ import {
   Check,
   ThumbsUp,
   ThumbsDown,
+  Heart,
   ChevronDown,
   ChevronUp,
   ImageIcon,
@@ -43,6 +44,8 @@ export default function CharacterSidebar({
     dislikes: persona.dislikes ?? 0,
     my_reaction: null,
   });
+  const [favorite, setFavorite] = useState(persona.favorite ?? false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const categories = (persona.categories ?? "")
     .split(",")
@@ -63,10 +66,48 @@ export default function CharacterSidebar({
         }
       })
       .catch(() => {});
+    fetch(`/api/personas/${persona.id}/favorite`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data && typeof data.favorite === "boolean") {
+          setFavorite(data.favorite);
+        }
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [persona.id, token]);
+
+  async function handleFavorite() {
+    if (favorite) {
+      setShowConfirm(true);
+      return;
+    }
+    await doToggleFavorite(true);
+  }
+
+  async function doToggleFavorite(next: boolean) {
+    setFavorite(next);
+    try {
+      const r = await fetch(`/api/personas/${persona.id}/favorite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ favorite: next }),
+      });
+      const data = await r.json();
+      if (r.ok && data && typeof data.favorite === "boolean") {
+        setFavorite(data.favorite);
+      }
+    } catch {
+      // revert on error
+    }
+  }
 
   function handleShare() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -207,6 +248,18 @@ export default function CharacterSidebar({
             <ThumbsDown size={16} />
             {reactions.dislikes}
           </button>
+          <button
+            onClick={handleFavorite}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+              favorite
+                ? "bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400"
+                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-pink-50 dark:hover:bg-pink-900/20"
+            }`}
+            title="Favorite"
+          >
+            <Heart size={16} fill={favorite ? "currentColor" : "none"} />
+            <span>Favorite</span>
+          </button>
         </div>
 
         {/* Quick Actions */}
@@ -265,6 +318,49 @@ export default function CharacterSidebar({
           </div>
         </div>
       </div>
+
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          onClick={() => setShowConfirm(false)}
+        >
+          <div
+            className="w-80 max-w-[90vw] rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-center w-14 h-14 mx-auto mb-4 rounded-full bg-pink-100 dark:bg-pink-900/40">
+              <Heart size={26} className="text-pink-600 dark:text-pink-400" fill="currentColor" />
+            </div>
+            <h3 className="text-center text-base font-bold dark:text-zinc-100">
+              Remove from favorites
+            </h3>
+            <p className="text-center text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+              Are you sure you want to remove{" "}
+              <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                {persona.name}
+              </span>{" "}
+              from your favorites collection?
+            </p>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirm(false);
+                  doToggleFavorite(false);
+                }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
