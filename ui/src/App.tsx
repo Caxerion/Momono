@@ -6,6 +6,7 @@ import CreateCharacter from "./components/CreateCharacter";
 import CharacterProfile from "./components/CharacterProfile";
 import CharacterSidebar from "./components/CharacterSidebar";
 import Settings from "./components/Settings";
+import UserProfilePage from "./components/UserProfile";
 import Login from "./components/Login";
 import type { Conversation, Message, Persona, UserProfile } from "./types";
 
@@ -34,6 +35,7 @@ export default function App() {
   const [showCharacterSidebar, setShowCharacterSidebar] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileConversationCount, setProfileConversationCount] = useState(0);
 
   useEffect(() => {
@@ -367,7 +369,9 @@ export default function App() {
         onNewPersona={() => { setEditingPersona(null); navigate({ path: "create" }); }}
         onEditPersona={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
         onDeleteHistory={handleDeleteHistory}
-        onOpenSettings={() => navigate({ path: "settings" })}
+        onOpenProfile={() => navigate({ path: "me" })}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onLogout={handleLogout}
       />
       <div className="flex-1 flex flex-col relative min-h-0">
         {route.path === "create" || route.path === "edit" ? (
@@ -385,8 +389,8 @@ export default function App() {
             }}
             onSaved={loadPersonas}
           />
-        ) : route.path === "settings" && userProfile ? (
-          <Settings
+        ) : route.path === "me" && userProfile ? (
+          <UserProfilePage
             profile={userProfile}
             token={token}
             onBack={() => navigate({ path: "home" })}
@@ -503,6 +507,41 @@ export default function App() {
           </>
         )}
       </div>
+
+      {settingsOpen && userProfile && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+          style={{ animation: "fade-in 0.15s ease-out" }}
+          onClick={() => setSettingsOpen(false)}
+        >
+          <div
+            className="w-[440px] max-w-[92vw] max-h-[90vh] overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 shadow-2xl"
+            style={{ animation: "pop-in 0.2s ease-out" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Settings
+              profile={userProfile}
+              token={token}
+              onBack={() => setSettingsOpen(false)}
+              onSaved={(updated) => {
+                setUserProfile(updated);
+                loadProfile();
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes pop-in {
+          from { opacity: 0; transform: translateY(8px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </div>
   );
 }

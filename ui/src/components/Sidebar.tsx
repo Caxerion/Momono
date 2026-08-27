@@ -11,6 +11,8 @@ import {
   Compass,
   PanelLeftClose,
   PanelLeftOpen,
+  User,
+  LogOut,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import type { Conversation, Persona, UserProfile } from "../types";
@@ -24,7 +26,9 @@ type Props = {
   onNewPersona: () => void;
   onEditPersona: (persona: Persona) => void;
   onDeleteHistory: (personaId: string) => void;
+  onOpenProfile: () => void;
   onOpenSettings: () => void;
+  onLogout: () => void;
 };
 
 export default function Sidebar(p: Props) {
@@ -34,11 +38,16 @@ export default function Sidebar(p: Props) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [moreMenu, setMoreMenu] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(null);
+      }
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreMenu(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -148,8 +157,15 @@ export default function Sidebar(p: Props) {
           </button>
         )}
 
-        {(collapsed || chatsOpen) && (
-          <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+            collapsed || chatsOpen
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
             {filtered.length === 0 ? (
               !collapsed && (
                 <p className="text-xs text-zinc-400 px-3 py-3">
@@ -265,27 +281,35 @@ export default function Sidebar(p: Props) {
                 );
               })
             )}
-          </div>
-        )}
+            </div>
+            </div>
+        </div>
       </div>
 
       {/* Footer / profile */}
       {p.userProfile && (
         <div
-          className={`border-t border-zinc-200 dark:border-zinc-800 py-2 ${
+          ref={moreRef}
+          className={`relative border-t border-zinc-200 dark:border-zinc-800 py-2 ${
             collapsed ? "px-2 flex justify-center" : "px-2"
           }`}
         >
           {collapsed ? (
             <button
-              onClick={p.onOpenSettings}
+              onClick={() => setMoreMenu((v) => !v)}
               title={p.userProfile.display_name || p.userProfile.username}
               className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors"
             >
               <Avatar name={p.userProfile.username} size={32} src={p.userProfile.avatar_url} />
             </button>
           ) : (
-            <div className="flex items-center gap-1 rounded-lg hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors">
+            <div
+              className={`flex items-center gap-1 rounded-lg transition-colors ${
+                moreMenu
+                  ? "bg-zinc-200/70 dark:bg-zinc-800"
+                  : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
+              }`}
+            >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -295,17 +319,57 @@ export default function Sidebar(p: Props) {
               >
                 <Avatar name={p.userProfile.username} size={36} src={p.userProfile.avatar_url} />
               </button>
-              <button onClick={p.onOpenSettings} className="min-w-0 flex-1 text-left px-2 py-2">
+              <button onClick={p.onOpenProfile} className="min-w-0 flex-1 text-left px-2 py-2">
                 <p className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
                   {p.userProfile.display_name || p.userProfile.username}
                 </p>
                 <p className="text-xs text-zinc-500 truncate">@{p.userProfile.username}</p>
               </button>
               <button
-                onClick={p.onOpenSettings}
+                onClick={() => setMoreMenu((v) => !v)}
                 className="shrink-0 p-2 mr-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
               >
                 <Settings size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Dropdown: Profile / Settings / Logout */}
+          {moreMenu && (
+            <div
+              className="absolute left-2 right-2 bottom-full mb-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-30 py-1 overflow-hidden"
+              style={{ animation: "pop-in 0.18s ease-out" }}
+            >
+              <button
+                onClick={() => {
+                  setMoreMenu(false);
+                  p.onOpenProfile();
+                }}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              >
+                <User size={14} />
+                Profile
+              </button>
+              <button
+                onClick={() => {
+                  setMoreMenu(false);
+                  p.onOpenSettings();
+                }}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+              >
+                <Settings size={14} />
+                Settings
+              </button>
+              <div className="my-1 border-t border-zinc-200 dark:border-zinc-700" />
+              <button
+                onClick={() => {
+                  setMoreMenu(false);
+                  p.onLogout();
+                }}
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+              >
+                <LogOut size={14} />
+                Logout
               </button>
             </div>
           )}
@@ -331,6 +395,10 @@ export default function Sidebar(p: Props) {
         .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
         .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.4); border-radius: 9999px; }
         .sidebar-scroll::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.6); }
+        @keyframes pop-in {
+          from { opacity: 0; transform: translateY(4px) scale(0.97); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
       `}</style>
     </aside>
   );

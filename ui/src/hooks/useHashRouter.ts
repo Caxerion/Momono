@@ -4,6 +4,7 @@ export type Route =
   | { path: "home" }
   | { path: "chat"; personaId: string }
   | { path: "profile"; personaId: string }
+  | { path: "me" }
   | { path: "create" }
   | { path: "edit"; personaId: string }
   | { path: "settings" };
@@ -15,6 +16,7 @@ function parseHash(): Route {
   if (segs[0] === "chat" && segs[1]) return { path: "chat", personaId: segs[1] };
   if (segs[0] === "profile" && segs[1]) return { path: "profile", personaId: segs[1] };
   if (segs[0] === "edit" && segs[1]) return { path: "edit", personaId: segs[1] };
+  if (segs[0] === "me") return { path: "me" };
   if (segs[0] === "create") return { path: "create" };
   if (segs[0] === "settings") return { path: "settings" };
   return { path: "home" };
@@ -37,6 +39,7 @@ export function useHashRouter() {
       case "home": hash = "#/"; break;
       case "chat": hash = `#/chat/${to.personaId}`; break;
       case "profile": hash = `#/profile/${to.personaId}`; break;
+      case "me": hash = "#/me"; break;
       case "create": hash = "#/create"; break;
       case "edit": hash = `#/edit/${to.personaId}`; break;
       case "settings": hash = "#/settings"; break;
