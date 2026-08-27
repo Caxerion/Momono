@@ -9,6 +9,8 @@ import {
   Check,
   ThumbsUp,
   ThumbsDown,
+  ChevronDown,
+  ChevronUp,
   ImageIcon,
 } from "lucide-react";
 import type { Conversation, Persona, PersonaReactions } from "../types";
@@ -35,11 +37,19 @@ export default function CharacterSidebar({
   onViewProfile,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [reactions, setReactions] = useState<PersonaReactions>({
     likes: persona.likes ?? 0,
     dislikes: persona.dislikes ?? 0,
     my_reaction: null,
   });
+
+  const categories = (persona.categories ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const visibleCategories = showAllCategories ? categories : categories.slice(0, 3);
+  const hasMore = categories.length > 3;
 
   useEffect(() => {
     let cancelled = false;
@@ -134,6 +144,44 @@ export default function CharacterSidebar({
             </div>
           </div>
         </button>
+
+        {/* Categories */}
+        {categories.length > 0 && (
+          <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                Categories
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {visibleCategories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+            {hasMore && (
+              <button
+                onClick={() => setShowAllCategories(!showAllCategories)}
+                className="mt-2 flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                {showAllCategories ? (
+                  <>
+                    See less <ChevronUp size={13} />
+                  </>
+                ) : (
+                  <>
+                    See more ({categories.length - visibleCategories.length} more){" "}
+                    <ChevronDown size={13} />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Like / Dislike */}
         <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-center gap-3">

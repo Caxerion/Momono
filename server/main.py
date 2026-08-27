@@ -164,6 +164,13 @@ def list_personas():
     return [dict(r) for r in rows]
 
 
+@app.get("/api/categories")
+def list_categories():
+    with connect() as conn:
+        rows = conn.execute("SELECT name FROM categories ORDER BY name ASC").fetchall()
+    return [dict(r) for r in rows]
+
+
 @app.get("/api/personas/{pid}/reactions")
 def get_persona_reactions(pid: str, req: Request):
     user_id = current_user(req)
@@ -261,10 +268,11 @@ async def create_persona(req: Request):
     greeting = data.get("greeting", "")
     personality = data.get("personality", "")
     created_by = data.get("created_by", "")
+    categories = data.get("categories", "")
     with connect() as conn:
         conn.execute(
-            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-            (pid, name, title, about, about, greeting, personality, created_by, now()),
+            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_by, created_at, categories) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (pid, name, title, about, about, greeting, personality, created_by, now(), categories),
         )
         conn.commit()
     return {"id": pid, "name": name}
@@ -274,10 +282,11 @@ async def update_persona(pid: str, req: Request):
     data = await req.json()
     about = data.get("about", "")
     personality = data.get("personality", "")
+    categories = data.get("categories", "")
     with connect() as conn:
         conn.execute(
-            "UPDATE personas SET name=?, title=?, system_prompt=?, about=?, greeting=?, personality=? WHERE id=?",
-            (data.get("name", ""), data.get("title", ""), about, about, data.get("greeting", ""), personality, pid),
+            "UPDATE personas SET name=?, title=?, system_prompt=?, about=?, greeting=?, personality=?, categories=? WHERE id=?",
+            (data.get("name", ""), data.get("title", ""), about, about, data.get("greeting", ""), personality, categories, pid),
         )
         conn.commit()
     return {"ok": True}

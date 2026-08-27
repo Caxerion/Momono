@@ -12,7 +12,9 @@ export type Persona = {
   avatar_url?: string | null;
   likes?: number;
   dislikes?: number;
+  categories?: string;
 };
+export type Category = { name: string };
 export type PersonaReactions = {
   likes: number;
   dislikes: number;

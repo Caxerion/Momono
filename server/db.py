@@ -81,6 +81,10 @@ def init_db() -> None:
             cur.execute("ALTER TABLE personas ADD COLUMN dislikes INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
+        try:
+            cur.execute("ALTER TABLE personas ADD COLUMN categories TEXT")
+        except sqlite3.OperationalError:
+            pass
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS persona_reactions (
@@ -91,7 +95,42 @@ def init_db() -> None:
             )
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS categories (
+                name TEXT PRIMARY KEY
+            )
+            """
+        )
+        seed_categories(cur)
         conn.commit()
+
+
+def seed_categories(cur) -> None:
+    default_categories = [
+        "Anime",
+        "Fantasy",
+        "Action",
+        "School",
+        "Romance",
+        "Sci-Fi",
+        "Horror",
+        "Mystery",
+        "Comedy",
+        "Drama",
+        "Adventure",
+        "Slice of Life",
+        "Supernatural",
+        "Sports",
+        "Historical",
+        "Mecha",
+        "Game",
+        "Original",
+    ]
+    cur.executemany(
+        "INSERT OR IGNORE INTO categories (name) VALUES (?)",
+        [(name,) for name in default_categories],
+    )
 
 
 @contextmanager

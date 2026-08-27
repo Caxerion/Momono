@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
-import type { Persona } from "../types";
+import type { Category, Persona } from "../types";
 
 type Props = {
   persona: Persona | null;
@@ -19,7 +19,28 @@ export default function CreateCharacter({ persona, token, createdBy, onBack, onS
   const [avatarUrl, setAvatarUrl] = useState(persona?.avatar_url ?? "");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    persona?.categories ? persona.categories.split(",").map((c) => c.trim()).filter(Boolean) : []
+  );
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/categories", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setCategories(data);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  function toggleCategory(name: string) {
+    setSelectedCategories((prev) =>
+      prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name]
+    );
+  }
 
   async function uploadAvatar(pid: string, file: File) {
     const form = new FormData();
@@ -53,7 +74,8 @@ export default function CreateCharacter({ persona, token, createdBy, onBack, onS
 
   async function save() {
     setBusy(true);
-    const body = JSON.stringify({ name, title, about, greeting, personality, created_by: persona ? undefined : createdBy });
+    const categories = selectedCategories.join(",");
+    const body = JSON.stringify({ name, title, about, greeting, personality, categories, created_by: persona ? undefined : createdBy });
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -167,6 +189,32 @@ export default function CreateCharacter({ persona, token, createdBy, onBack, onS
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. A shy girl who loves reading novels"
         />
+
+        <label className="block text-sm font-medium mb-1">Categories</label>
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => {
+              const active = selectedCategories.includes(cat.name);
+              return (
+                <button
+                  key={cat.name}
+                  type="button"
+                  onClick={() => toggleCategory(cat.name)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-indigo-400"
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+          {selectedCategories.length === 0 && (
+            <p className="text-xs text-zinc-400 mt-1.5">Select one or more categories</p>
+          )}
+        </div>
 
         <label className="block text-sm font-medium mb-1">About (character description)</label>
         <textarea
