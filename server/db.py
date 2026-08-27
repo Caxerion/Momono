@@ -59,6 +59,7 @@ def init_db() -> None:
         except sqlite3.OperationalError:
             pass
         try:
+            
             cur.execute("ALTER TABLE personas ADD COLUMN avatar_url TEXT")
         except sqlite3.OperationalError:
             pass
@@ -72,6 +73,24 @@ def init_db() -> None:
                 cur.execute(f"ALTER TABLE users ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
                 pass
+        try:
+            cur.execute("ALTER TABLE personas ADD COLUMN likes INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cur.execute("ALTER TABLE personas ADD COLUMN dislikes INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS persona_reactions (
+                persona_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                value TEXT NOT NULL,
+                PRIMARY KEY (persona_id, user_id)
+            )
+            """
+        )
         conn.commit()
 
 

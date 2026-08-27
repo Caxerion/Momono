@@ -10,6 +10,13 @@ export type Persona = {
   personality?: string;
   created_by?: string;
   avatar_url?: string | null;
+  likes?: number;
+  dislikes?: number;
+};
+export type PersonaReactions = {
+  likes: number;
+  dislikes: number;
+  my_reaction: "like" | "dislike" | null;
 };
 export type UserProfile = {
   username: string;

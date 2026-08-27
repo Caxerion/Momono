@@ -12,6 +12,10 @@ app = FastAPI()
 cfg = load_config()
 
 
+def current_user(req: Request) -> str:
+    return req.headers.get("X-User-Id", "anonymous")
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -158,6 +162,94 @@ def list_personas():
             "SELECT * FROM personas ORDER BY created_at DESC"
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/personas/{pid}/reactions")
+def get_persona_reactions(pid: str, req: Request):
+    user_id = current_user(req)
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT likes, dislikes FROM personas WHERE id=?", (pid,)
+        ).fetchone()
+        reactions = conn.execute(
+            "SELECT value FROM persona_reactions WHERE persona_id=? AND user_id=?",
+            (pid, user_id),
+        ).fetchall()
+    if not row:
+        return {"error": "not found"}
+    my_value = reactions[0]["value"] if reactions else None
+    return {
+        "likes": row["likes"] or 0,
+        "dislikes": row["dislikes"] or 0,
+        "my_reaction": my_value,
+    }
+
+
+@app.post("/api/personas/{pid}/reaction")
+async def toggle_persona_reaction(pid: str, req: Request):
+    data = await req.json()
+    value = data.get("value")
+    if value not in ("like", "dislike"):
+        return {"error": "invalid value"}
+    column = "likes" if value == "like" else "dislikes"
+    user_id = current_user(req)
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM personas WHERE id=?", (pid,)
+        ).fetchone()
+        if not row:
+            return {"error": "not found"}
+        existing = conn.execute(
+            "SELECT value FROM persona_reactions WHERE persona_id=? AND user_id=?",
+            (pid, user_id),
+        ).fetchone()
+        existing_col = "likes" if existing and existing["value"] == "like" else "dislikes"
+        new_value = None
+        if existing:
+            if existing["value"] == value:
+                # toggle off
+                conn.execute(
+                    "DELETE FROM persona_reactions WHERE persona_id=? AND user_id=?",
+                    (pid, user_id),
+                )
+                conn.execute(
+                    f'UPDATE personas SET "{column}"="{column}"-1 WHERE id=?',
+                    (pid,),
+                )
+            else:
+                # switch
+                conn.execute(
+                    "UPDATE persona_reactions SET value=? WHERE persona_id=? AND user_id=?",
+                    (value, pid, user_id),
+                )
+                conn.execute(
+                    f'UPDATE personas SET "{existing_col}"="{existing_col}"-1 WHERE id=?',
+                    (pid,),
+                )
+                conn.execute(
+                    f'UPDATE personas SET "{column}"="{column}"+1 WHERE id=?',
+                    (pid,),
+                )
+                new_value = value
+        else:
+            conn.execute(
+                "INSERT INTO persona_reactions (persona_id, user_id, value) VALUES (?,?,?)",
+                (pid, user_id, value),
+            )
+            conn.execute(
+                f'UPDATE personas SET "{column}"="{column}"+1 WHERE id=?',
+                (pid,),
+            )
+            new_value = value
+        conn.commit()
+        counts = conn.execute(
+            "SELECT likes, dislikes FROM personas WHERE id=?", (pid,)
+        ).fetchone()
+    return {
+        "likes": counts["likes"] or 0,
+        "dislikes": counts["dislikes"] or 0,
+        "my_reaction": new_value,
+    }
 
 @app.post("/api/personas")
 async def create_persona(req: Request):

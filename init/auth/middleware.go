@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
@@ -12,10 +13,12 @@ func RequireAuth(next http.Handler) http.Handler {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		if _, err := ValidateSession(token); err != nil {
+		userID, err := ValidateSession(token)
+		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		r.Header.Set("X-User-Id", fmt.Sprintf("%d", userID))
 		next.ServeHTTP(w, r)
 	})
 }

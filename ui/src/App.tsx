@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { useHashRouter } from "./hooks/useHashRouter";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import CreateCharacter from "./components/CreateCharacter";
 import CharacterProfile from "./components/CharacterProfile";
+import CharacterSidebar from "./components/CharacterSidebar";
 import Settings from "./components/Settings";
 import Login from "./components/Login";
 import type { Conversation, Message, Persona, UserProfile } from "./types";
@@ -17,6 +19,7 @@ const DEFAULT_PROMPT =
   "Never start a response without an asterisk action first.";
 
 export default function App() {
+  const { route, navigate } = useHashRouter();
   const [token, setToken] = useState<string | null>(
     () => localStorage.getItem("token")
   );
@@ -24,24 +27,20 @@ export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [personas, setPersonas] = useState<Persona[]>([]);
-  const [personaId, setPersonaId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [dark, setDark] = useState(false);
-  const [createCharacterOpen, setCreateCharacterOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
-  const [viewProfilePersona, setViewProfilePersona] = useState<Persona | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showCharacterSidebar, setShowCharacterSidebar] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlToken = params.get("token");
     if (urlToken) {
       handleLogin(urlToken);
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
 
@@ -68,7 +67,7 @@ export default function App() {
   }
 
   async function loadConversations(pid?: string | null) {
-    const target = pid !== undefined ? pid : personaId;
+    const target = pid !== undefined ? pid : route.path === "chat" ? route.personaId : null;
     const url = target ? `/api/conversations?persona_id=${target}` : "/api/conversations";
     const data = await getJSON(url);
     if (data) setConversations(data);
@@ -94,15 +93,17 @@ export default function App() {
     }
   }, [token]);
 
+  useEffect(() => {
+    if (route.path === "chat" && personas.length > 0 && messages.length === 0) {
+      handleSelectPersona(route.personaId);
+    }
+  }, [route, personas]);
+
   async function handleSelectPersona(pid: string) {
-    setPersonaId(pid);
+    navigate({ path: "chat", personaId: pid });
     setConversationId(null);
     setMessages([]);
-    setShowHistory(false);
-    setCreateCharacterOpen(false);
-    setEditingPersona(null);
-    setViewProfilePersona(null);
-    setSettingsOpen(false);
+    setShowCharacterSidebar(false);
     const persona = personas.find((p) => p.id === pid);
     const data = await getJSON(`/api/conversations?persona_id=${pid}`);
     if (data && data.length > 0) {
@@ -129,16 +130,16 @@ export default function App() {
   }
 
   function handleBackToDefault() {
-    setPersonaId(null);
+    navigate({ path: "home" });
     setConversationId(null);
     setMessages([]);
-    setShowHistory(false);
+    setShowCharacterSidebar(false);
     loadConversations(null);
   }
 
   async function handleSelectConversation(id: string) {
     setConversationId(id);
-    setShowHistory(false);
+    setShowCharacterSidebar(false);
     const d = await getJSON(`/api/conversations/${id}/messages`);
     if (!d) return;
     const mapped = d.map((m: { role: string; content: string; regenerate_index?: number }) => ({
@@ -146,7 +147,7 @@ export default function App() {
       content: m.content,
       regenerate_index: m.regenerate_index ?? 0,
     }));
-    const persona = personas.find((p) => p.id === personaId);
+    const persona = personas.find((p) => p.id === (route.path === "chat" ? route.personaId : null));
     const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === persona.greeting);
     if (!hasGreeting && persona?.greeting) {
       mapped.unshift({ role: "assistant", content: persona.greeting });
@@ -157,9 +158,9 @@ export default function App() {
 
   function handleNewChat() {
     setConversationId(null);
-    setShowHistory(false);
+    setShowCharacterSidebar(false);
     setRegenView({});
-    const persona = personas.find((p) => p.id === personaId);
+    const persona = personas.find((p) => p.id === (route.path === "chat" ? route.personaId : null));
     if (persona?.greeting) {
       setMessages([{ role: "assistant", content: persona.greeting }]);
     } else {
@@ -172,19 +173,20 @@ export default function App() {
     setConversations([]);
     setConversationId(null);
     setMessages([]);
-    setShowHistory(false);
+    setShowCharacterSidebar(false);
   }
 
   async function ensureConversation(): Promise<string> {
     if (conversationId) return conversationId;
+    const pid = route.path === "chat" ? route.personaId : null;
     const d = await getJSON("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "New Chat", persona_id: personaId }),
+      body: JSON.stringify({ title: "New Chat", persona_id: pid }),
     });
     if (!d) return "";
     setConversationId(d.id);
-    const persona = personas.find((p) => p.id === personaId);
+    const persona = personas.find((p) => p.id === pid);
     if (persona?.greeting) {
       await fetch(`/api/conversations/${d.id}/messages`, {
         method: "POST",
@@ -202,6 +204,7 @@ export default function App() {
     setInput("");
     setRegenView({});
     const cid = await ensureConversation();
+    const pid = route.path === "chat" ? route.personaId : null;
     setMessages((m) => [
       ...m,
       { role: "user", content: text },
@@ -214,7 +217,7 @@ export default function App() {
       body: JSON.stringify({
         conversation_id: cid || null,
         message: text,
-        persona_id: personaId,
+        persona_id: pid,
         system_prompt: DEFAULT_PROMPT,
       }),
     });
@@ -267,7 +270,7 @@ export default function App() {
       body: JSON.stringify({
         conversation_id: conversationId,
         message: lastUserMsg.content,
-        persona_id: personaId,
+        persona_id: route.path === "chat" ? route.personaId : null,
         system_prompt: DEFAULT_PROMPT,
         is_regenerate: true,
         regenerate_index: nextIdx,
@@ -331,132 +334,125 @@ export default function App() {
     return <Login onLogin={handleLogin} />;
   }
 
-  const currentPersona = personaId
-    ? personas.find((p) => p.id === personaId) ?? null
-    : null;
+  const currentPersona =
+    route.path === "chat" || route.path === "profile" || route.path === "edit"
+      ? personas.find((p) => p.id === route.personaId) ?? null
+      : null;
 
   return (
     <div className={`${dark ? "dark" : ""} flex h-screen overflow-hidden`}>
       <Sidebar
         conversations={conversations}
         personas={personas}
-        personaId={personaId}
+        personaId={route.path === "chat" ? route.personaId : null}
         userProfile={userProfile}
         onSelectPersona={handleSelectPersona}
-        onNewPersona={() => { setEditingPersona(null); setCreateCharacterOpen(true); }}
-        onEditPersona={(p) => { setEditingPersona(p); setCreateCharacterOpen(true); }}
+        onNewPersona={() => { setEditingPersona(null); navigate({ path: "create" }); }}
+        onEditPersona={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
         onDeleteHistory={handleDeleteHistory}
-        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenSettings={() => navigate({ path: "settings" })}
       />
       <div className="flex-1 flex flex-col relative min-h-0">
-        {createCharacterOpen ? (
+        {route.path === "create" || route.path === "edit" ? (
           <CreateCharacter
-            persona={editingPersona}
+            persona={route.path === "edit" ? editingPersona : null}
             token={token}
             createdBy={userProfile?.username ?? ""}
-            onBack={() => { setCreateCharacterOpen(false); setEditingPersona(null); }}
+            onBack={() => {
+              setEditingPersona(null);
+              if (route.path === "edit" && editingPersona) {
+                navigate({ path: "chat", personaId: editingPersona.id });
+              } else {
+                navigate({ path: "home" });
+              }
+            }}
             onSaved={loadPersonas}
           />
-        ) : settingsOpen && userProfile ? (
+        ) : route.path === "settings" && userProfile ? (
           <Settings
             profile={userProfile}
             token={token}
-            onBack={() => setSettingsOpen(false)}
+            onBack={() => navigate({ path: "home" })}
             onSaved={(updated) => {
               setUserProfile(updated);
               loadProfile();
             }}
           />
-        ) : viewProfilePersona ? (
+        ) : route.path === "profile" && currentPersona ? (
           <CharacterProfile
-            persona={viewProfilePersona}
-            onBack={() => setViewProfilePersona(null)}
-            onEdit={(p) => { setViewProfilePersona(null); setEditingPersona(p); setCreateCharacterOpen(true); }}
-            onChat={(pid) => { setViewProfilePersona(null); handleSelectPersona(pid); }}
+            persona={currentPersona}
+            onBack={() => navigate({ path: "chat", personaId: currentPersona.id })}
+            onEdit={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
+            onChat={(pid) => handleSelectPersona(pid)}
           />
-        ) : personaId && currentPersona ? (
-          <>
-            <div className="flex items-center p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
-              <button
-                onClick={handleBackToDefault}
-                className="rounded-lg px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-800"
-              >
-                ←
-              </button>
-              <button
-                onClick={() => setViewProfilePersona(currentPersona)}
-                className="font-semibold text-sm truncate hover:underline"
-              >
-                {currentPersona.name}
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={() => setShowHistory(!showHistory)}
-                className={`rounded-lg px-3 py-1 text-sm ${
-                  showHistory
-                    ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300"
-                    : "bg-zinc-200 dark:bg-zinc-800"
-                }`}
-              >
-                📜 History
-              </button>
-              <button
-                className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
-                onClick={() => setDark(!dark)}
-              >
-                {dark ? "☀️" : "🌙"}
-              </button>
-              <button
-                className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
-            </div>
-
-            {showHistory && (
-              <div className="absolute top-[45px] right-0 w-72 h-[calc(100%-45px)] border-l border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 z-10 flex flex-col">
-                <div className="p-3 font-semibold text-sm border-b border-zinc-200 dark:border-zinc-700">
-                  History
-                </div>
-                <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
-                  <button
-                    onClick={handleNewChat}
-                    className="w-full text-left p-2.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-dashed border-indigo-300 dark:border-indigo-700"
-                  >
-                    + New Chat
-                  </button>
-                  {conversations.map((c) => (
-                    <button
-                      key={c.id}
-                      onClick={() => handleSelectConversation(c.id)}
-                      className={`block w-full text-left p-2.5 rounded-lg text-sm truncate ${
-                        conversationId === c.id
-                          ? "bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300"
-                          : "hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      {c.title}
-                    </button>
-                  ))}
-                </div>
+        ) : route.path === "chat" && currentPersona ? (
+          <div className="flex-1 flex min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+              <div className="flex items-center p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+                <button
+                  onClick={handleBackToDefault}
+                  className="rounded-lg px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  ←
+                </button>
+                <button
+                  onClick={() => navigate({ path: "profile", personaId: currentPersona.id })}
+                  className="font-semibold text-sm truncate hover:underline"
+                >
+                  {currentPersona.name}
+                </button>
+                <div className="flex-1" />
+                <button
+                  className="rounded-lg px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-800"
+                  onClick={() => setDark(!dark)}
+                >
+                  {dark ? "☀️" : "🌙"}
+                </button>
+                <button
+                  className="rounded-lg px-3 py-1 text-sm bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
               </div>
-            )}
-
-            <ChatArea
+              <div className="flex-1 flex flex-col min-h-0 relative">
+                <ChatArea
+                  persona={currentPersona}
+                  messages={messages}
+                  input={input}
+                  setInput={setInput}
+                  onSend={send}
+                  onRegenerate={regenerate}
+                  regenView={regenView}
+                  onPrevRegen={prevRegen}
+                  onNextRegen={nextRegen}
+                  busy={busy}
+                  userProfile={userProfile}
+                />
+                <button
+                  onClick={() => setShowCharacterSidebar(!showCharacterSidebar)}
+                  className="absolute right-3 top-3 z-20 w-9 h-9 flex items-center justify-center rounded-lg bg-white/80 dark:bg-zinc-800/80 backdrop-blur border border-zinc-200 dark:border-zinc-700 shadow-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                  title="Info"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <CharacterSidebar
               persona={currentPersona}
-              messages={messages}
-              input={input}
-              setInput={setInput}
-              onSend={send}
-              onRegenerate={regenerate}
-              regenView={regenView}
-              onPrevRegen={prevRegen}
-              onNextRegen={nextRegen}
-              busy={busy}
-              userProfile={userProfile}
+              conversations={conversations}
+              conversationId={conversationId}
+              visible={showCharacterSidebar}
+              token={token}
+              onNewChat={handleNewChat}
+              onSelectConversation={handleSelectConversation}
+              onViewProfile={(p) => navigate({ path: "profile", personaId: p.id })}
             />
-          </>
+          </div>
         ) : (
           <>
             <div className="flex items-center justify-end p-2 border-b border-zinc-200 dark:border-zinc-800 gap-2">

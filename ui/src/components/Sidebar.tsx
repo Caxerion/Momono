@@ -8,6 +8,7 @@ import {
   Trash2,
   Settings,
   Sparkles,
+  Compass,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
@@ -87,7 +88,7 @@ export default function Sidebar(p: Props) {
             collapsed ? "justify-center w-10 h-10" : "w-full px-2.5 py-2"
           }`}
         >
-          <Search size={17} strokeWidth={2} />
+          <Compass size={17} strokeWidth={2} />
           {!collapsed && "Discover"}
         </button>
         <button
