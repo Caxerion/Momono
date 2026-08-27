@@ -180,7 +180,7 @@ export default function CharacterSidebar({
               )}
               <span className="flex items-center gap-1 shrink-0">
                 <MessageSquare size={12} />
-                {conversations.length} chat{conversations.length !== 1 ? "s" : ""}
+                {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>

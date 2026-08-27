@@ -34,6 +34,7 @@ export default function App() {
   const [showCharacterSidebar, setShowCharacterSidebar] = useState(false);
   const [regenView, setRegenView] = useState<Record<number, number>>({});
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [profileConversationCount, setProfileConversationCount] = useState(0);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -98,6 +99,22 @@ export default function App() {
       handleSelectPersona(route.personaId);
     }
   }, [route, personas]);
+
+  useEffect(() => {
+    if (route.path !== "profile" || !token) return;
+    const pid = route.personaId;
+    let cancelled = false;
+
+    setProfileConversationCount(0);
+
+    getJSON(`/api/conversations?persona_id=${pid}`).then((data) => {
+      if (!cancelled) setProfileConversationCount(data?.length ?? 0);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [route, token]);
 
   async function handleSelectPersona(pid: string) {
     navigate({ path: "chat", personaId: pid });
@@ -384,6 +401,7 @@ export default function App() {
             onBack={() => navigate({ path: "chat", personaId: currentPersona.id })}
             onEdit={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
             onChat={(pid) => handleSelectPersona(pid)}
+            conversationCount={profileConversationCount}
           />
         ) : route.path === "chat" && currentPersona ? (
           <div className="flex-1 flex min-h-0">
