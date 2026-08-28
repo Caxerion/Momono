@@ -37,6 +37,7 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileConversationCount, setProfileConversationCount] = useState(0);
+  const [favoritePersonas, setFavoritePersonas] = useState<Persona[]>([]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -86,13 +87,20 @@ export default function App() {
     if (data) setUserProfile(data);
   }
 
+  async function loadFavorites() {
+    const data = await getJSON("/api/user/favorites");
+    if (data) setFavoritePersonas(data);
+  }
+
   useEffect(() => {
     if (token) {
       loadProfile();
       loadConversations();
       loadPersonas();
+      loadFavorites();
     } else {
       setUserProfile(null);
+      setFavoritePersonas([]);
     }
   }, [token]);
 
@@ -103,19 +111,27 @@ export default function App() {
   }, [route, personas]);
 
   useEffect(() => {
-    if (route.path !== "profile" || !token) return;
-    const pid = route.personaId;
-    let cancelled = false;
+    if (route.path === "profile" && token) {
+      const pid = route.personaId;
+      let cancelled = false;
 
-    setProfileConversationCount(0);
+      setProfileConversationCount(0);
 
-    getJSON(`/api/conversations?persona_id=${pid}`).then((data) => {
-      if (!cancelled) setProfileConversationCount(data?.length ?? 0);
-    });
+      getJSON(`/api/conversations?persona_id=${pid}`).then((data) => {
+        if (!cancelled) setProfileConversationCount(data?.length ?? 0);
+      });
 
-    return () => {
-      cancelled = true;
-    };
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [route, token]);
+
+  useEffect(() => {
+    if (route.path === "me" && token) {
+      loadFavorites();
+      loadPersonas();
+    }
   }, [route, token]);
 
   async function handleSelectPersona(pid: string) {
@@ -397,6 +413,15 @@ export default function App() {
             onSaved={(updated) => {
               setUserProfile(updated);
               loadProfile();
+            }}
+            createdPersonas={personas.filter(
+              (p) => p.created_by === userProfile.username
+            )}
+            favoritedPersonas={favoritePersonas}
+            onSelectPersona={(pid) => handleSelectPersona(pid)}
+            onEditPersona={(p) => {
+              setEditingPersona(p);
+              navigate({ path: "edit", personaId: p.id });
             }}
           />
         ) : route.path === "profile" && currentPersona ? (

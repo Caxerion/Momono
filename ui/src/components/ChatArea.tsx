@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Plus, Send } from "lucide-react";
 import Avatar from "./Avatar";
 import type { Message, Persona, UserProfile } from "../types";
 
@@ -57,6 +58,11 @@ type Props = {
   userProfile?: UserProfile | null;
 };
 
+// Lebar maksimum kolom percakapan — dipakai bareng buat area pesan & form input
+// biar keduanya tetap sejajar dan konten nggak mepet ke tepi kanan/kiri,
+// baik pas sidebar terbuka maupun tertutup.
+const CHAT_COLUMN_CLASS = "max-w-3xl mx-auto w-full";
+
 export default function ChatArea(p: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   const [photoPreview, setPhotoPreview] = useState(false);
@@ -79,8 +85,8 @@ export default function ChatArea(p: Props) {
         <span className="font-semibold">{p.persona?.name ?? "Default"}</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-3xl mx-auto space-y-4">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className={`${CHAT_COLUMN_CLASS} p-4 pb-8 space-y-4`}>
           {p.messages.length === 0 && (
             <div className="text-center text-zinc-400 mt-10 px-4">
               Mulai chatting with your character...
@@ -110,7 +116,7 @@ export default function ChatArea(p: Props) {
               return (
                 <div key={`u-${bi}`} className="flex gap-3 flex-row-reverse">
                   <Avatar name="You" emoji="🙂" size={36} />
-                  <div className="max-w-[85%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
+                  <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
                     {renderText(b.msg.content)}
                   </div>
                 </div>
@@ -121,7 +127,7 @@ export default function ChatArea(p: Props) {
               return (
                 <div key={`a-${bi}`} className="flex gap-3">
                   <Avatar name={p.persona?.name ?? "AI"} size={36} src={p.persona?.avatar_url} />
-                  <div className="max-w-[85%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
+                  <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
                     {renderText(b.msg.content)}
                   </div>
                 </div>
@@ -139,13 +145,13 @@ export default function ChatArea(p: Props) {
               <div key={`g-${bi}`}>
                 <div className="flex gap-3 flex-row-reverse">
                   <Avatar name="You" emoji="🙂" size={36} />
-                  <div className="max-w-[85%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
+                  <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
                     {renderText(b.userMsg.content)}
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <Avatar name={p.persona?.name ?? "AI"} size={36} src={p.persona?.avatar_url} />
-                  <div className="max-w-[85%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
+                  <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-zinc-100 dark:bg-zinc-800">
                     {current.content ? (
                       renderText(current.content)
                     ) : p.busy && isLast ? (
@@ -194,16 +200,24 @@ export default function ChatArea(p: Props) {
       </div>
 
       <form
-        className="p-3 border-t border-zinc-200 dark:border-zinc-800"
+        className="relative -mt-6 z-10 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
         onSubmit={(e) => {
           e.preventDefault();
           p.onSend();
         }}
       >
-        <div className="max-w-3xl mx-auto flex gap-2">
+        <div className={`${CHAT_COLUMN_CLASS} p-3 flex items-center gap-2`}>
+          <button
+            type="button"
+            title="Add attachment"
+            className="shrink-0 w-11 h-11 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300 transition-colors"
+          >
+            <Plus size={20} />
+          </button>
+
           <textarea
-            className="flex-1 resize-none rounded-xl border p-3 bg-zinc-100 dark:bg-zinc-800"
-            rows={2}
+            className="flex-1 resize-none rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-5 py-3 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-500 transition-shadow leading-tight"
+            rows={1}
             value={p.input}
             placeholder="Type Anything..."
             onChange={(e) => p.setInput(e.target.value)}
@@ -214,11 +228,14 @@ export default function ChatArea(p: Props) {
               }
             }}
           />
+
           <button
-            className="px-5 rounded-xl bg-indigo-600 text-white font-medium disabled:opacity-50"
-            disabled={p.busy}
+            type="submit"
+            title="Send"
+            disabled={p.busy || !p.input.trim()}
+            className="shrink-0 w-11 h-11 rounded-full bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
           >
-            Send
+            <Send size={18} strokeWidth={2.5} />
           </button>
         </div>
       </form>

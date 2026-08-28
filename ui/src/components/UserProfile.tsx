@@ -1,16 +1,95 @@
-import { useRef, useState } from "react";
-import { ArrowLeft, Pencil, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Pencil, User, Users, UserPlus, MessageSquare, MoreHorizontal } from "lucide-react";
 import Avatar from "./Avatar";
-import type { UserProfile } from "../types";
+import type { UserProfile, Persona } from "../types";
 
 type Props = {
   profile: UserProfile;
   token: string | null;
   onBack: () => void;
   onSaved: (updated: UserProfile) => void;
+  /**
+   * Semua data di bawah ini opsional — kalau parent belum kirim, tampilannya
+   * tetap aman (angka 0 / list kosong). Isi dari state atau fetch yang sudah
+   * kamu punya di parent, contoh:
+   *   followersCount={followers.length}
+   *   followingCount={following.length}
+   *   createdPersonas={myPersonas}
+   *   favoritedPersonas={favorites}
+   */
+  followersCount?: number;
+  followingCount?: number;
+  createdPersonas?: Persona[];
+  favoritedPersonas?: Persona[];
+  onSelectPersona?: (personaId: string) => void;
+  onEditPersona?: (persona: Persona) => void;
 };
 
-export default function UserProfilePage({ profile, token, onBack, onSaved }: Props) {
+function PersonaCard({
+  persona,
+  conversationCount = 0,
+  onClick,
+  onEdit,
+}: {
+  persona: Persona;
+  conversationCount?: number;
+  onClick?: () => void;
+  onEdit?: () => void;
+}) {
+  return (
+    <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors overflow-hidden">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onEdit?.();
+        }}
+        title="Edit Character"
+        className="absolute top-2 right-2 z-10 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      <button
+        onClick={onClick}
+        className="w-full p-4 flex flex-col items-center gap-2 text-center"
+      >
+        <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
+          {persona.avatar_url ? (
+            <img
+              src={persona.avatar_url}
+              alt={persona.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span>{persona.name.slice(0, 1).toUpperCase()}</span>
+          )}
+        </div>
+        <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate w-full">
+          {persona.name}
+        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full min-h-4">
+          {persona.title ?? ""}
+        </p>
+        <span className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
+          <MessageSquare size={12} />
+          {conversationCount} conversation{conversationCount !== 1 ? "s" : ""}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+export default function UserProfilePage({
+  profile,
+  token,
+  onBack,
+  onSaved,
+  followersCount = 0,
+  followingCount = 0,
+  createdPersonas = [],
+  favoritedPersonas = [],
+  onSelectPersona,
+  onEditPersona,
+}: Props) {
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState(profile.username);
   const [displayName, setDisplayName] = useState(profile.display_name);
@@ -20,6 +99,8 @@ export default function UserProfilePage({ profile, token, onBack, onSaved }: Pro
   const [uploading, setUploading] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"created" | "favorites">("created");
+  const [conversationCounts, setConversationCounts] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function uploadAvatar(file: File) {
@@ -79,6 +160,27 @@ export default function UserProfilePage({ profile, token, onBack, onSaved }: Pro
     setBusy(false);
   }
 
+  const activeList = tab === "created" ? createdPersonas : favoritedPersonas;
+
+  useEffect(() => {
+    let cancelled = false;
+    activeList.forEach((persona) => {
+      fetch(`/api/conversations?persona_id=${persona.id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled && Array.isArray(data)) {
+            setConversationCounts((prev) => ({ ...prev, [persona.id]: data.length }));
+          }
+        })
+        .catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeList, token]);
+
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-white dark:bg-zinc-950">
       <div className="flex items-center gap-3 p-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -99,17 +201,49 @@ export default function UserProfilePage({ profile, token, onBack, onSaved }: Pro
               <div className="flex items-start gap-5">
                 <Avatar name={profile.username} src={profile.avatar_url} size={112} />
                 <div className="min-w-0 flex-1 pt-1">
-                  <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white truncate">
-                    {profile.display_name || profile.username}
-                  </h1>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white truncate">
+                      {profile.display_name || profile.username}
+                    </h1>
+                    {/* Edit Profile dipindah ke sini: ikon pensil di samping nama,
+                        konsisten dengan pola tombol edit di CharacterProfile.tsx
+                        (langsung terlihat tanpa scroll, tidak makan tempat). */}
+                    <button
+                      onClick={() => {
+                        setUsername(profile.username);
+                        setDisplayName(profile.display_name);
+                        setAboutMe(profile.about_me);
+                        setAvatarUrl(profile.avatar_url ?? "");
+                        setError("");
+                        setEditing(true);
+                      }}
+                      title="Edit Profile"
+                      className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  </div>
                   <p className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mt-1">
                     @{profile.username}
                   </p>
-                  {profile.email && (
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 truncate">
-                      {profile.email}
-                    </p>
-                  )}
+
+                  {/* Followers / Following */}
+                  <div className="flex items-center gap-4 mt-2.5">
+                    <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                      <Users size={15} />
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                        {followersCount.toLocaleString()}
+                      </span>
+                      Followers
+                    </span>
+                    <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                      <UserPlus size={15} />
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                        {followingCount.toLocaleString()}
+                      </span>
+                      Following
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -126,20 +260,56 @@ export default function UserProfilePage({ profile, token, onBack, onSaved }: Pro
                 </div>
               )}
 
-              <button
-                onClick={() => {
-                  setUsername(profile.username);
-                  setDisplayName(profile.display_name);
-                  setAboutMe(profile.about_me);
-                  setAvatarUrl(profile.avatar_url ?? "");
-                  setError("");
-                  setEditing(true);
-                }}
-                className="flex items-center gap-2 mt-8 bg-indigo-600 hover:bg-indigo-500 transition-colors text-white rounded-xl px-5 py-2.5 text-sm font-semibold"
-              >
-                <Pencil size={16} />
-                Edit Profile
-              </button>
+              {/* Filter: karakter yang dibuat vs yang difavoritkan */}
+              <div className="mt-8">
+                <div className="flex items-center gap-1 border-b border-zinc-200 dark:border-zinc-800">
+                  <button
+                    onClick={() => setTab("created")}
+                    className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      tab === "created"
+                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Dibuat ({createdPersonas.length})
+                  </button>
+                  <button
+                    onClick={() => setTab("favorites")}
+                    className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      tab === "favorites"
+                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Favorit ({favoritedPersonas.length})
+                  </button>
+                </div>
+
+                <div className="mt-4">
+                  {activeList.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {activeList.map((persona) => (
+                        <PersonaCard
+                          key={persona.id}
+                          persona={persona}
+                          conversationCount={conversationCounts[persona.id] ?? 0}
+                          onClick={() => onSelectPersona?.(persona.id)}
+                          onEdit={() => onEditPersona?.(persona)}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center py-10 text-zinc-400 dark:text-zinc-500">
+                      <MessageSquare size={28} className="mb-2 opacity-60" />
+                      <p className="text-sm">
+                        {tab === "created"
+                          ? "No created characters by you."
+                          : "No favorited characters yet"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </>
           ) : (
             <>
