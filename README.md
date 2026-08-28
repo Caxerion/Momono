@@ -70,4 +70,4 @@ The launcher will spin up the Python server and instantly open your default web 
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License you can see it.
