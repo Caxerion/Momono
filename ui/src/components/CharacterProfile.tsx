@@ -170,7 +170,7 @@ export default function CharacterProfile({
           className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
         >
           <ArrowLeft size={16} />
-          Kembali
+          Back
         </button>
         <span className="font-semibold text-sm text-zinc-500 dark:text-zinc-400">
           Character Profile
