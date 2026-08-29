@@ -85,8 +85,8 @@ export default function ChatArea(p: Props) {
         <span className="font-semibold">{p.persona?.name ?? "Default"}</span>
       </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className={`${CHAT_COLUMN_CLASS} p-4 pb-8 space-y-4`}>
+      <div className="flex-1 overflow-y-auto">
+        <div className={`${CHAT_COLUMN_CLASS} p-4 space-y-4`}>
           {p.messages.length === 0 && (
             <div className="text-center text-zinc-400 mt-10 px-4">
               Mulai chatting with your character...
@@ -143,7 +143,7 @@ export default function ChatArea(p: Props) {
 
             return (
               <div key={`g-${bi}`}>
-                <div className="flex gap-3 flex-row-reverse">
+                <div className="flex gap-3 flex-row-reverse mb-3">
                   <Avatar name="You" emoji="🙂" size={36} />
                   <div className="max-w-[70%] rounded-2xl px-4 py-2 whitespace-pre-wrap bg-indigo-600 text-white">
                     {renderText(b.userMsg.content)}
@@ -200,7 +200,7 @@ export default function ChatArea(p: Props) {
       </div>
 
       <form
-        className="relative -mt-6 z-10 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+        className="border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
         onSubmit={(e) => {
           e.preventDefault();
           p.onSend();

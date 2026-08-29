@@ -217,6 +217,9 @@ export default function CreateCharacter({ persona, token, createdBy, onBack, onS
         </div>
 
         <label className="block text-sm font-medium mb-1">About (character description)</label>
+        <p className="text-xs text-zinc-400 mb-2">
+          Bisa juga pakai <code className="text-indigo-500 dark:text-indigo-400">{"{user}"}</code> untuk merujuk nama pemain.
+        </p>
         <textarea
           className="w-full mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800 resize-y"
           rows={4}
@@ -227,12 +230,15 @@ export default function CreateCharacter({ persona, token, createdBy, onBack, onS
 
         <label className="block text-sm font-medium mb-1">Greeting (opening message, optional)</label>
         <textarea
-          className="w-full mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800 resize-y"
+          className="w-full mb-2 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800 resize-y"
           rows={3}
           value={greeting}
           onChange={(e) => setGreeting(e.target.value)}
           placeholder="*she waves her hand* Hey, you're here too?"
         />
+        <p className="text-xs text-zinc-400 mb-4">
+          Pakai <code className="text-indigo-500 dark:text-indigo-400">{"{user}"}</code> untuk manggil nama pemain, contoh: "Hi {"{user}"}"
+        </p>
 
         <label className="block text-sm font-medium mb-1">Character's Personality</label>
         <textarea

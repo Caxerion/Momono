@@ -19,6 +19,15 @@ const DEFAULT_PROMPT =
   "Mix actions and dialogue in one paragraph naturally. " +
   "Never start a response without an asterisk action first.";
 
+// Ganti placeholder {user} di teks karakter (greeting/about/personality)
+// dengan nama user yang sedang ngobrol. Pakai display name kalau ada,
+// fallback ke username, kalau kosong pakai "user".
+function resolveUserVars(text: string | undefined | null, profile: UserProfile | null): string {
+  if (!text) return text ?? "";
+  const name = profile?.display_name?.trim() || profile?.username?.trim() || "user";
+  return text.replace(/\{user\}/gi, name);
+}
+
 export default function App() {
   const { route, navigate } = useHashRouter();
   const [token, setToken] = useState<string | null>(
@@ -151,15 +160,15 @@ export default function App() {
           content: m.content,
           regenerate_index: m.regenerate_index ?? 0,
         }));
-        const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === persona.greeting);
+        const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === resolveUserVars(persona.greeting, userProfile));
         if (!hasGreeting && persona?.greeting) {
-          mapped.unshift({ role: "assistant", content: persona.greeting });
+          mapped.unshift({ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) });
         }
         setMessages(mapped);
         setRegenView({});
       }
     } else if (persona?.greeting) {
-      setMessages([{ role: "assistant", content: persona.greeting }]);
+      setMessages([{ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) }]);
     }
     setConversations(data || []);
   }
@@ -183,9 +192,9 @@ export default function App() {
       regenerate_index: m.regenerate_index ?? 0,
     }));
     const persona = personas.find((p) => p.id === (route.path === "chat" ? route.personaId : null));
-    const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === persona.greeting);
+    const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === resolveUserVars(persona.greeting, userProfile));
     if (!hasGreeting && persona?.greeting) {
-      mapped.unshift({ role: "assistant", content: persona.greeting });
+      mapped.unshift({ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) });
     }
     setMessages(mapped);
     setRegenView({});
@@ -197,7 +206,7 @@ export default function App() {
     setRegenView({});
     const persona = personas.find((p) => p.id === (route.path === "chat" ? route.personaId : null));
     if (persona?.greeting) {
-      setMessages([{ role: "assistant", content: persona.greeting }]);
+      setMessages([{ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) }]);
     } else {
       setMessages([]);
     }
@@ -226,7 +235,7 @@ export default function App() {
       await fetch(`/api/conversations/${d.id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "assistant", content: persona.greeting }),
+        body: JSON.stringify({ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) }),
       });
     }
     loadConversations();
@@ -254,6 +263,7 @@ export default function App() {
         message: text,
         persona_id: pid,
         system_prompt: DEFAULT_PROMPT,
+        user_name: userProfile?.display_name || "",
       }),
     });
     if (r.status === 401) {
@@ -307,6 +317,7 @@ export default function App() {
         message: lastUserMsg.content,
         persona_id: route.path === "chat" ? route.personaId : null,
         system_prompt: DEFAULT_PROMPT,
+        user_name: userProfile?.display_name || "",
         is_regenerate: true,
         regenerate_index: nextIdx,
       }),

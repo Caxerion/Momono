@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Pencil, User, Users, UserPlus, MessageSquare, MoreHorizontal } from "lucide-react";
+import {
+  ArrowLeft,
+  Pencil,
+  User,
+  Users,
+  UserPlus,
+  MessageSquare,
+  MoreHorizontal,
+  ThumbsUp,
+} from "lucide-react";
 import Avatar from "./Avatar";
 import type { UserProfile, Persona } from "../types";
 
@@ -36,6 +45,18 @@ function PersonaCard({
   onClick?: () => void;
   onEdit?: () => void;
 }) {
+  const categories = (persona.categories ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+  const visibleCategories = categories.slice(0, 3);
+  const extraCount = categories.length - visibleCategories.length;
+
+  const likes = persona.likes ?? 0;
+  const dislikes = persona.dislikes ?? 0;
+  const totalReactions = likes + dislikes;
+  const likePercent = totalReactions > 0 ? Math.round((likes / totalReactions) * 100) : 0;
+
   return (
     <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors overflow-hidden">
       <button
@@ -44,15 +65,12 @@ function PersonaCard({
           onEdit?.();
         }}
         title="Edit Character"
-        className="absolute top-2 right-2 z-10 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+        className="absolute top-3 right-3 z-10 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
       >
         <MoreHorizontal size={16} />
       </button>
-      <button
-        onClick={onClick}
-        className="w-full p-4 flex flex-col items-center gap-2 text-center"
-      >
-        <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold">
+      <button onClick={onClick} className="w-full p-4 flex items-start gap-4 text-left">
+        <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xl">
           {persona.avatar_url ? (
             <img
               src={persona.avatar_url}
@@ -63,16 +81,51 @@ function PersonaCard({
             <span>{persona.name.slice(0, 1).toUpperCase()}</span>
           )}
         </div>
-        <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate w-full">
-          {persona.name}
-        </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate w-full min-h-4">
-          {persona.title ?? ""}
-        </p>
-        <span className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
-          <MessageSquare size={12} />
-          {conversationCount} conversation{conversationCount !== 1 ? "s" : ""}
-        </span>
+
+        <div className="min-w-0 flex-1 pr-6">
+          <p className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+            {persona.name}
+          </p>
+          {persona.created_by && (
+            <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400 truncate mt-0.5">
+              @{persona.created_by}
+            </p>
+          )}
+          <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate min-h-4 mt-0.5">
+            {persona.title ?? ""}
+          </p>
+
+          {/* Categories */}
+          {visibleCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {visibleCategories.map((cat) => (
+                <span
+                  key={cat}
+                  className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 whitespace-nowrap"
+                >
+                  {cat}
+                </span>
+              ))}
+              {extraCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800">
+                  +{extraCount}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Stats: cukup bubble chat (jumlah) + persentase like */}
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <MessageSquare size={12} />
+              {conversationCount}
+            </span>
+            <span className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <ThumbsUp size={12} />
+              {likePercent}%
+            </span>
+          </div>
+        </div>
       </button>
     </div>
   );
@@ -287,7 +340,7 @@ export default function UserProfilePage({
 
                 <div className="mt-4">
                   {activeList.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-3">
                       {activeList.map((persona) => (
                         <PersonaCard
                           key={persona.id}

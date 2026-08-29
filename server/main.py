@@ -16,6 +16,14 @@ def current_user(req: Request) -> str:
     return req.headers.get("X-User-Id", "anonymous")
 
 
+def resolve_user_vars(text: str, user_name: str) -> str:
+    """Gantikan placeholder {user} dengan nama user yang sedang chat."""
+    if not text:
+        return text
+    name = user_name or "user"
+    return text.replace("{user}", name).replace("{User}", name)
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -92,17 +100,23 @@ async def chat(req: Request):
     user_msg = data.get("message", "")
     persona_id = data.get("persona_id")
     persona_prompt = data.get("system_prompt", "")
+    user_name = data.get("user_name", "")
     is_regenerate = data.get("is_regenerate", False)
     regenerate_index = data.get("regenerate_index", 0)
+    if user_name:
+        persona_prompt = (
+            f"The user chatting with you is named {user_name}. "
+            "Always address them by this name.\n\n" + persona_prompt
+        )
     if persona_id:
         with connect() as conn:
             row = conn.execute(
                 "SELECT about, system_prompt, greeting, personality FROM personas WHERE id=?", (persona_id,)
             ).fetchone()
         if row:
-            persona_about = row["about"] or row["system_prompt"] or ""
+            persona_about = resolve_user_vars(row["about"] or row["system_prompt"] or "", user_name)
             greeting = row["greeting"] or ""
-            personality = row["personality"] or ""
+            personality = resolve_user_vars(row["personality"] or "", user_name)
             parts = [p for p in [persona_about, personality] if p]
             if parts:
                 persona_prompt = "\n\n".join(parts) + "\n\n" + persona_prompt
@@ -121,7 +135,7 @@ async def chat(req: Request):
         history = [{"role": r["role"], "content": r["content"]} for r in rows]
 
     if not history and greeting:
-        history = [{"role": "assistant", "content": greeting}]
+        history = [{"role": "assistant", "content": resolve_user_vars(greeting, user_name)}]
 
     messages = []
     if persona_prompt:
