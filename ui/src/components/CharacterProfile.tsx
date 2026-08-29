@@ -13,10 +13,11 @@ import type { Persona } from "../types";
 type Props = {
   persona: Persona;
   onBack: () => void;
-  onEdit: (persona: Persona) => void;
+  onEdit?: (persona: Persona) => void;
   onChat: (personaId: string) => void;
   onFavorite?: (personaId: string) => void;
   isFavorite?: boolean;
+  onViewUser?: (userId: number | string) => void;
   /**
    * Belum ada di tipe Persona, jadi ini opsional — kalau nggak dikasih dari
    * parent, stat chat default 0 dan stat like default 0%.
@@ -79,6 +80,7 @@ export default function CharacterProfile({
   onChat,
   onFavorite,
   isFavorite = false,
+  onViewUser,
   conversationCount = 0,
 }: Props) {
   const [photoPreview, setPhotoPreview] = useState(false);
@@ -194,18 +196,26 @@ export default function CharacterProfile({
                 <h1 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white truncate">
                   {persona.name}
                 </h1>
-                <button
-                  onClick={() => onEdit(persona)}
-                  title="Edit Character"
-                  className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                >
-                  <Pencil size={15} />
-                </button>
+                {onEdit && (
+                  <button
+                    onClick={() => onEdit(persona)}
+                    title="Edit Character"
+                    className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                )}
               </div>
               {persona.created_by && (
-                <p className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mt-0.5 truncate">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (persona.user_id) onViewUser?.(persona.user_id);
+                  }}
+                  className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mt-0.5 truncate hover:underline"
+                >
                   @{persona.created_by}
-                </p>
+                </button>
               )}
 
               {/* Stats bubble: chat interactions & like percentage */}

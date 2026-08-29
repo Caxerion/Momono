@@ -49,6 +49,8 @@ export default function App() {
   const [profileConversationCount, setProfileConversationCount] = useState(0);
   const [favoritePersonas, setFavoritePersonas] = useState<Persona[]>([]);
   const [allPersonas, setAllPersonas] = useState<Persona[]>([]);
+  const [viewUserProfile, setViewUserProfile] = useState<UserProfile | null>(null);
+  const [viewUserPersonas, setViewUserPersonas] = useState<Persona[]>([]);
 
   const selectingRef = useRef<string | null>(null);
   const triedRef = useRef<string | null>(null);
@@ -179,6 +181,23 @@ export default function App() {
   }, [route, token]);
 
   useEffect(() => {
+    if (route.path === "user" && token) {
+      let cancelled = false;
+      const uid = route.userId;
+      getJSON(`/api/users/${uid}`).then((data) => {
+        if (cancelled || !data || data.error) return;
+        setViewUserProfile(data);
+      });
+      getJSON(`/api/personas?user_id=${uid}`).then((data) => {
+        if (!cancelled && data) setViewUserPersonas(data);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [route, token]);
+
+  useEffect(() => {
     if (route.path === "discover" && token) {
       getJSON("/api/personas").then((data) => {
         if (data) setAllPersonas(data);
@@ -194,6 +213,11 @@ export default function App() {
       body: JSON.stringify({ favorite }),
     });
     if (r) loadFavorites();
+  }
+
+  function handleViewUser(userId: number | string) {
+    if (userId === undefined || userId === null) return;
+    navigate({ path: "user", userId: String(userId) });
   }
 
   async function handleSelectPersona(pid: string) {
@@ -501,13 +525,29 @@ export default function App() {
               setEditingPersona(p);
               navigate({ path: "edit", personaId: p.id });
             }}
+            onViewUser={handleViewUser}
+          />
+        ) : route.path === "user" && viewUserProfile ? (
+          <UserProfilePage
+            profile={viewUserProfile}
+            token={token}
+            editable={Boolean(userProfile && viewUserProfile.username === userProfile.username)}
+            onBack={() => navigate({ path: "home" })}
+            createdPersonas={viewUserPersonas}
+            onSelectPersona={(pid) => handleSelectPersona(pid)}
+            onViewUser={handleViewUser}
           />
         ) : route.path === "profile" && currentPersona ? (
           <CharacterProfile
             persona={currentPersona}
             onBack={() => navigate({ path: "chat", personaId: currentPersona.id })}
-            onEdit={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
+            onEdit={
+              currentPersona.user_id && userProfile?.id !== undefined && Number(userProfile.id) === currentPersona.user_id
+                ? (p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }
+                : undefined
+            }
             onChat={(pid) => handleSelectPersona(pid)}
+            onViewUser={handleViewUser}
             conversationCount={profileConversationCount}
           />
         ) : route.path === "discover" ? (
@@ -516,6 +556,7 @@ export default function App() {
             favorites={favoriteIds}
             onChat={(pid) => handleSelectPersona(pid)}
             onToggleFavorite={handleToggleFavorite}
+            onViewUser={handleViewUser}
           />
         ) : route.path === "chat" && currentPersona ? (
           <div className="flex-1 flex min-h-0">
@@ -560,6 +601,7 @@ export default function App() {
                   onNextRegen={nextRegen}
                   busy={busy}
                   userProfile={userProfile}
+                  onViewUser={handleViewUser}
                 />
                 <button
                   onClick={() => setShowCharacterSidebar(!showCharacterSidebar)}
@@ -583,6 +625,7 @@ export default function App() {
               onNewChat={handleNewChat}
               onSelectConversation={handleSelectConversation}
               onViewProfile={(p) => navigate({ path: "profile", personaId: p.id })}
+              onViewUser={handleViewUser}
             />
           </div>
         ) : (

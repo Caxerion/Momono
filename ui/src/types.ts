@@ -9,6 +9,7 @@ export type Persona = {
   greeting?: string;
   personality?: string;
   created_by?: string;
+  user_id?: number;
   avatar_url?: string | null;
   likes?: number;
   dislikes?: number;
@@ -25,8 +26,9 @@ export type PersonaFavorite = {
   favorite: boolean;
 };
 export type UserProfile = {
+  id?: number;
   username: string;
-  email: string;
+  email?: string;
   display_name: string;
   about_me: string;
   avatar_url?: string | null;

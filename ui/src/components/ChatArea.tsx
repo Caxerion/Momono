@@ -56,6 +56,7 @@ type Props = {
   onNextRegen: (groupIdx: number, max: number) => void;
   busy: boolean;
   userProfile?: UserProfile | null;
+  onViewUser?: (userId: number | string) => void;
 };
 
 // Lebar maksimum kolom percakapan — dipakai bareng buat area pesan & form input
@@ -106,7 +107,17 @@ export default function ChatArea(p: Props) {
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">{p.persona.title}</span>
               )}
               <span className="text-xs text-zinc-400">
-                Created by @{p.persona.created_by || p.userProfile?.username || "Unknown"}
+                Created by{" "}
+                {p.persona?.user_id ? (
+                  <button
+                    onClick={() => p.persona?.user_id && p.onViewUser?.(p.persona.user_id)}
+                    className="text-indigo-500 dark:text-indigo-400 hover:underline"
+                  >
+                    @{p.persona.created_by || "Unknown"}
+                  </button>
+                ) : (
+                  `@${p.persona.created_by || p.userProfile?.username || "Unknown"}`
+                )}
               </span>
             </div>
           )}

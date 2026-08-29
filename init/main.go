@@ -84,6 +84,7 @@ func run() {
 	mux.HandleFunc("DELETE /api/auth/avatar", auth.AvatarDeleteHandler)
 	mux.HandleFunc("GET /api/auth/github", auth.GitHubLoginHandler)
 	mux.HandleFunc("GET /api/auth/github/callback", auth.GitHubCallbackHandler)
+	mux.HandleFunc("GET /api/users/{id}", auth.PublicUserProfileHandler)
 	mux.Handle("/api/", auth.RequireAuth(proxy))
 	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("../uploads"))))
 	mux.Handle("/", http.FileServer(http.Dir(distDir)))

@@ -16,7 +16,7 @@ type Props = {
   profile: UserProfile;
   token: string | null;
   onBack: () => void;
-  onSaved: (updated: UserProfile) => void;
+  onSaved?: (updated: UserProfile) => void;
   /**
    * Semua data di bawah ini opsional — kalau parent belum kirim, tampilannya
    * tetap aman (angka 0 / list kosong). Isi dari state atau fetch yang sudah
@@ -26,12 +26,14 @@ type Props = {
    *   createdPersonas={myPersonas}
    *   favoritedPersonas={favorites}
    */
+  editable?: boolean;
   followersCount?: number;
   followingCount?: number;
   createdPersonas?: Persona[];
   favoritedPersonas?: Persona[];
   onSelectPersona?: (personaId: string) => void;
   onEditPersona?: (persona: Persona) => void;
+  onViewUser?: (userId: number | string) => void;
 };
 
 function PersonaCard({
@@ -39,11 +41,13 @@ function PersonaCard({
   conversationCount = 0,
   onClick,
   onEdit,
+  onViewUser,
 }: {
   persona: Persona;
   conversationCount?: number;
   onClick?: () => void;
   onEdit?: () => void;
+  onViewUser?: (userId: number | string) => void;
 }) {
   const categories = (persona.categories ?? "")
     .split(",")
@@ -59,16 +63,18 @@ function PersonaCard({
 
   return (
     <div className="relative rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors overflow-hidden">
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onEdit?.();
-        }}
-        title="Edit Character"
-        className="absolute top-3 right-3 z-10 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
-      >
-        <MoreHorizontal size={16} />
-      </button>
+      {onEdit && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit?.();
+          }}
+          title="Edit Character"
+          className="absolute top-3 right-3 z-10 rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors"
+        >
+          <MoreHorizontal size={16} />
+        </button>
+      )}
       <button onClick={onClick} className="w-full p-4 flex items-start gap-4 text-left">
         <div className="w-20 h-20 rounded-2xl overflow-hidden shrink-0 bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 flex items-center justify-center text-white font-bold text-xl">
           {persona.avatar_url ? (
@@ -87,9 +93,15 @@ function PersonaCard({
             {persona.name}
           </p>
           {persona.created_by && (
-            <p className="text-xs font-medium text-indigo-500 dark:text-indigo-400 truncate mt-0.5">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (persona.user_id) onViewUser?.(persona.user_id);
+              }}
+              className="text-xs font-medium text-indigo-500 dark:text-indigo-400 truncate mt-0.5 hover:underline"
+            >
               @{persona.created_by}
-            </p>
+            </button>
           )}
           <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate min-h-4 mt-0.5">
             {persona.title ?? ""}
@@ -136,12 +148,14 @@ export default function UserProfilePage({
   token,
   onBack,
   onSaved,
+  editable = true,
   followersCount = 0,
   followingCount = 0,
   createdPersonas = [],
   favoritedPersonas = [],
   onSelectPersona,
   onEditPersona,
+  onViewUser,
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [username, setUsername] = useState(profile.username);
@@ -203,7 +217,7 @@ export default function UserProfilePage({
     });
     if (r.ok) {
       setSaved(true);
-      onSaved({ ...profile, username, display_name: displayName, about_me: aboutMe, avatar_url: avatarUrl });
+      onSaved?.({ ...profile, username, display_name: displayName, about_me: aboutMe, avatar_url: avatarUrl });
       setEditing(false);
       setTimeout(() => setSaved(false), 2000);
     } else {
@@ -261,20 +275,22 @@ export default function UserProfilePage({
                     {/* Edit Profile dipindah ke sini: ikon pensil di samping nama,
                         konsisten dengan pola tombol edit di CharacterProfile.tsx
                         (langsung terlihat tanpa scroll, tidak makan tempat). */}
-                    <button
-                      onClick={() => {
-                        setUsername(profile.username);
-                        setDisplayName(profile.display_name);
-                        setAboutMe(profile.about_me);
-                        setAvatarUrl(profile.avatar_url ?? "");
-                        setError("");
-                        setEditing(true);
-                      }}
-                      title="Edit Profile"
-                      className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                    >
-                      <Pencil size={15} />
-                    </button>
+                    {editable && (
+                      <button
+                        onClick={() => {
+                          setUsername(profile.username);
+                          setDisplayName(profile.display_name);
+                          setAboutMe(profile.about_me);
+                          setAvatarUrl(profile.avatar_url ?? "");
+                          setError("");
+                          setEditing(true);
+                        }}
+                        title="Edit Profile"
+                        className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                    )}
                   </div>
                   <p className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mt-1">
                     @{profile.username}
@@ -326,16 +342,18 @@ export default function UserProfilePage({
                   >
                     Dibuat ({createdPersonas.length})
                   </button>
-                  <button
-                    onClick={() => setTab("favorites")}
-                    className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                      tab === "favorites"
-                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-                    }`}
-                  >
-                    Favorit ({favoritedPersonas.length})
-                  </button>
+                  {editable && (
+                    <button
+                      onClick={() => setTab("favorites")}
+                      className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                        tab === "favorites"
+                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                          : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      }`}
+                    >
+                      Favorit ({favoritedPersonas.length})
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-4">
@@ -348,6 +366,7 @@ export default function UserProfilePage({
                           conversationCount={conversationCounts[persona.id] ?? 0}
                           onClick={() => onSelectPersona?.(persona.id)}
                           onEdit={() => onEditPersona?.(persona)}
+                          onViewUser={onViewUser}
                         />
                       ))}
                     </div>

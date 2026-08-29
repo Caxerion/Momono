@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -150,8 +151,51 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
+		"id":           fmt.Sprintf("%d", userID),
 		"username":     username,
 		"email":        email,
+		"display_name": displayName,
+		"about_me":     aboutMe,
+		"avatar_url":   avatarUrl,
+	})
+}
+
+func PublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	token = strings.TrimPrefix(token, "Bearer ")
+	if token == "" {
+		http.Error(w, "token not found", http.StatusUnauthorized)
+		return
+	}
+	if _, err := ValidateSession(token); err != nil {
+		http.Error(w, "invalid session", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	var username, displayName, aboutMe, avatarUrl string
+	err = db.QueryRow(
+		"SELECT username, COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,'') FROM users WHERE id=?",
+		userID,
+	).Scan(&username, &displayName, &aboutMe, &avatarUrl)
+	if err == sql.ErrNoRows {
+		http.Error(w, "user not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "failed to load user", http.StatusInternalServerError)
+		log.Println("users: query error:", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"username":     username,
 		"display_name": displayName,
 		"about_me":     aboutMe,
 		"avatar_url":   avatarUrl,

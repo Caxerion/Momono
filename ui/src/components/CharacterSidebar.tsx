@@ -25,6 +25,7 @@ type Props = {
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onViewProfile: (p: Persona) => void;
+  onViewUser?: (userId: number | string) => void;
 };
 
 export default function CharacterSidebar({
@@ -36,6 +37,7 @@ export default function CharacterSidebar({
   onNewChat,
   onSelectConversation,
   onViewProfile,
+  onViewUser,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
@@ -145,9 +147,11 @@ export default function CharacterSidebar({
     >
       <div className="w-72 h-full flex flex-col min-h-0 bg-zinc-50 dark:bg-zinc-900">
         {/* Banner header — foto profil ditampilkan penuh sebagai banner, bukan avatar bulat */}
-        <button
+        <div
           onClick={() => onViewProfile(persona)}
-          className="relative w-full h-52 shrink-0 overflow-hidden group"
+          role="button"
+          tabIndex={0}
+          className="relative w-full h-52 shrink-0 overflow-hidden group cursor-pointer"
         >
           {persona.avatar_url ? (
             <img
@@ -173,9 +177,15 @@ export default function CharacterSidebar({
               {persona.created_by && (
                 <span className="flex items-center gap-1 truncate">
                   <User size={12} />
-                  <span className="truncate font-medium text-white/90">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (persona.user_id) onViewUser?.(persona.user_id);
+                    }}
+                    className="truncate font-medium text-white/90 hover:underline"
+                  >
                     @{persona.created_by}
-                  </span>
+                  </button>
                 </span>
               )}
               <span className="flex items-center gap-1 shrink-0">
@@ -184,7 +194,7 @@ export default function CharacterSidebar({
               </span>
             </div>
           </div>
-        </button>
+        </div>
 
         {/* Categories */}
         {categories.length > 0 && (

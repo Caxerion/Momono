@@ -8,9 +8,10 @@ type Props = {
   favorites: Set<string>;
   onChat: (id: string) => void;
   onToggleFavorite: (persona: Persona, favorite: boolean) => void;
+  onViewUser?: (userId: number | string) => void;
 };
 
-export default function Discover({ personas, favorites, onChat, onToggleFavorite }: Props) {
+export default function Discover({ personas, favorites, onChat, onToggleFavorite, onViewUser }: Props) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -76,9 +77,15 @@ export default function Discover({ personas, favorites, onChat, onToggleFavorite
                         {ps.name}
                       </p>
                       {ps.created_by && (
-                        <p className="text-xs text-indigo-500 dark:text-indigo-400 truncate">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (ps.user_id) onViewUser?.(ps.user_id);
+                          }}
+                          className="text-xs text-indigo-500 dark:text-indigo-400 truncate hover:underline"
+                        >
                           @{ps.created_by}
-                        </p>
+                        </button>
                       )}
                     </div>
                   </div>
