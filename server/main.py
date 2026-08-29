@@ -39,16 +39,18 @@ def health():
 
 
 @app.get("/api/conversations")
-def list_conversations(persona_id: str | None = None):
+def list_conversations(req: Request, persona_id: str | None = None):
+    user_id = current_user(req)
     with connect() as conn:
         if persona_id:
             rows = conn.execute(
-                "SELECT * FROM conversations WHERE persona_id=? ORDER BY updated_at DESC",
-                (persona_id,),
+                "SELECT * FROM conversations WHERE persona_id=? AND user_id=? ORDER BY updated_at DESC",
+                (persona_id, user_id),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT * FROM conversations ORDER BY updated_at DESC"
+                "SELECT * FROM conversations WHERE user_id=? ORDER BY updated_at DESC",
+                (user_id,),
             ).fetchall()
     return [dict(r) for r in rows]
 
@@ -59,19 +61,27 @@ async def create_conversation(req: Request):
     cid = str(uuid.uuid4())
     title = data.get("title", "New Chat")
     persona_id = data.get("persona_id")
+    user_id = current_user(req)
     ts = now()
     with connect() as conn:
         conn.execute(
-            "INSERT INTO conversations (id, title, persona_id, created_at, updated_at) VALUES (?,?,?,?,?)",
-            (cid, title, persona_id, ts, ts),
+            "INSERT INTO conversations (id, title, persona_id, user_id, created_at, updated_at) VALUES (?,?,?,?,?,?)",
+            (cid, title, persona_id, user_id, ts, ts),
         )
         conn.commit()
     return {"id": cid, "title": title, "persona_id": persona_id}
 
 
 @app.get("/api/conversations/{cid}/messages")
-def get_messages(cid: str):
+def get_messages(cid: str, req: Request):
+    user_id = current_user(req)
     with connect() as conn:
+        conv = conn.execute(
+            "SELECT id FROM conversations WHERE id=? AND user_id=?",
+            (cid, user_id),
+        ).fetchone()
+        if not conv:
+            return {"error": "not found"}
         rows = conn.execute(
             "SELECT * FROM messages WHERE conversation_id=? ORDER BY id ASC",
             (cid,),
@@ -81,10 +91,17 @@ def get_messages(cid: str):
 
 @app.post("/api/conversations/{cid}/messages")
 async def add_message(cid: str, req: Request):
+    user_id = current_user(req)
     data = await req.json()
     role = data.get("role", "user")
     content = data.get("content", "")
     with connect() as conn:
+        conv = conn.execute(
+            "SELECT id FROM conversations WHERE id=? AND user_id=?",
+            (cid, user_id),
+        ).fetchone()
+        if not conv:
+            return {"error": "not found"}
         conn.execute(
             "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?,?,?,?)",
             (cid, role, content, now()),
@@ -103,6 +120,14 @@ async def chat(req: Request):
     user_name = data.get("user_name", "")
     is_regenerate = data.get("is_regenerate", False)
     regenerate_index = data.get("regenerate_index", 0)
+    if cid:
+        with connect() as conn:
+            conv = conn.execute(
+                "SELECT id FROM conversations WHERE id=? AND user_id=?",
+                (cid, current_user(req)),
+            ).fetchone()
+        if not conv:
+            return {"error": "not found"}
     if user_name:
         persona_prompt = (
             f"The user chatting with you is named {user_name}. "
@@ -170,12 +195,28 @@ async def chat(req: Request):
     return StreamingResponse(event_stream(), media_type="text/plain")
 
 @app.get("/api/personas")
-def list_personas():
+def list_personas(req: Request, mine: bool = False):
+    user_id = current_user(req)
     with connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM personas ORDER BY created_at DESC"
-        ).fetchall()
+        if mine:
+            rows = conn.execute(
+                "SELECT * FROM personas WHERE user_id=? ORDER BY created_at DESC",
+                (user_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM personas ORDER BY created_at DESC"
+            ).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/personas/{pid}")
+def get_persona(pid: str):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM personas WHERE id=?", (pid,)).fetchone()
+    if not row:
+        return {"error": "not found"}
+    return dict(row)
 
 
 @app.get("/api/categories")
@@ -323,21 +364,28 @@ async def create_persona(req: Request):
     personality = data.get("personality", "")
     created_by = data.get("created_by", "")
     categories = data.get("categories", "")
+    user_id = current_user(req)
     with connect() as conn:
         conn.execute(
-            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_by, created_at, categories) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (pid, name, title, about, about, greeting, personality, created_by, now(), categories),
+            "INSERT INTO personas (id, name, title, system_prompt, about, greeting, personality, created_by, user_id, created_at, categories) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (pid, name, title, about, about, greeting, personality, created_by, user_id, now(), categories),
         )
         conn.commit()
     return {"id": pid, "name": name}
 
 @app.put("/api/personas/{pid}")
 async def update_persona(pid: str, req: Request):
+    user_id = current_user(req)
     data = await req.json()
     about = data.get("about", "")
     personality = data.get("personality", "")
     categories = data.get("categories", "")
     with connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM personas WHERE id=? AND user_id=?", (pid, user_id)
+        ).fetchone()
+        if not row:
+            return {"error": "not found"}
         conn.execute(
             "UPDATE personas SET name=?, title=?, system_prompt=?, about=?, greeting=?, personality=?, categories=? WHERE id=?",
             (data.get("name", ""), data.get("title", ""), about, about, data.get("greeting", ""), personality, categories, pid),
@@ -345,8 +393,14 @@ async def update_persona(pid: str, req: Request):
         conn.commit()
     return {"ok": True}
 @app.delete("/api/personas/{pid}")
-def delete_persona(pid: str):
+def delete_persona(pid: str, req: Request):
+    user_id = current_user(req)
     with connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM personas WHERE id=? AND user_id=?", (pid, user_id)
+        ).fetchone()
+        if not row:
+            return {"error": "not found"}
         conn.execute("DELETE FROM personas WHERE id=?", (pid,))
         conn.commit()
     return {"ok": True}
@@ -386,9 +440,10 @@ async def delete_persona_avatar(pid: str):
 
 
 @app.delete("/api/conversations/persona/{pid}")
-def delete_persona_conversations(pid: str):
+def delete_persona_conversations(pid: str, req: Request):
+    user_id = current_user(req)
     with connect() as conn:
-        conn.execute("DELETE FROM conversations WHERE persona_id=?", (pid,))
+        conn.execute("DELETE FROM conversations WHERE persona_id=? AND user_id=?", (pid, user_id))
         conn.commit()
     return {"ok": True}
 

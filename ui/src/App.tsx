@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useHashRouter } from "./hooks/useHashRouter";
 import Sidebar from "./components/Sidebar";
 import ChatArea from "./components/ChatArea";
 import CreateCharacter from "./components/CreateCharacter";
 import CharacterProfile from "./components/CharacterProfile";
 import CharacterSidebar from "./components/CharacterSidebar";
+import Discover from "./components/Discover";
 import Settings from "./components/Settings";
 import UserProfilePage from "./components/UserProfile";
 import Login from "./components/Login";
@@ -47,6 +48,10 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [profileConversationCount, setProfileConversationCount] = useState(0);
   const [favoritePersonas, setFavoritePersonas] = useState<Persona[]>([]);
+  const [allPersonas, setAllPersonas] = useState<Persona[]>([]);
+
+  const selectingRef = useRef<string | null>(null);
+  const triedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -87,7 +92,7 @@ export default function App() {
   }
 
   async function loadPersonas() {
-    const data = await getJSON("/api/personas");
+    const data = await getJSON("/api/personas?mine=true");
     if (data) setPersonas(data);
   }
 
@@ -113,11 +118,41 @@ export default function App() {
     }
   }, [token]);
 
+  function findPersona(id: string): Persona | null {
+    return (
+      personas.find((p) => p.id === id) ??
+      allPersonas.find((p) => p.id === id) ??
+      favoritePersonas.find((p) => p.id === id) ??
+      null
+    );
+  }
+
   useEffect(() => {
-    if (route.path === "chat" && personas.length > 0 && messages.length === 0) {
-      handleSelectPersona(route.personaId);
+    if (
+      route.path === "chat" &&
+      route.personaId &&
+      messages.length === 0 &&
+      !selectingRef.current &&
+      triedRef.current !== route.personaId
+    ) {
+      const known = [personas, allPersonas, favoritePersonas].some((list) =>
+        list.some((p) => p.id === route.personaId)
+      );
+      if (known) handleSelectPersona(route.personaId);
     }
-  }, [route, personas]);
+  }, [route, personas, allPersonas, favoritePersonas, messages.length]);
+
+  useEffect(() => {
+    if (route.path === "chat" && route.personaId && !findPersona(route.personaId) && token) {
+      getJSON(`/api/personas/${route.personaId}`).then((data) => {
+        if (data && !data.error) {
+          setAllPersonas((prev) =>
+            prev.some((p) => p.id === data.id) ? prev : [...prev, data]
+          );
+        }
+      });
+    }
+  }, [route, token, personas, allPersonas, favoritePersonas]);
 
   useEffect(() => {
     if (route.path === "profile" && token) {
@@ -143,34 +178,59 @@ export default function App() {
     }
   }, [route, token]);
 
+  useEffect(() => {
+    if (route.path === "discover" && token) {
+      getJSON("/api/personas").then((data) => {
+        if (data) setAllPersonas(data);
+      });
+      loadFavorites();
+    }
+  }, [route, token]);
+
+  async function handleToggleFavorite(persona: Persona, favorite: boolean) {
+    const r = await getJSON(`/api/personas/${persona.id}/favorite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ favorite }),
+    });
+    if (r) loadFavorites();
+  }
+
   async function handleSelectPersona(pid: string) {
+    if (selectingRef.current === pid) return;
+    selectingRef.current = pid;
+    triedRef.current = pid;
     navigate({ path: "chat", personaId: pid });
     setConversationId(null);
     setMessages([]);
     setShowCharacterSidebar(false);
-    const persona = personas.find((p) => p.id === pid);
-    const data = await getJSON(`/api/conversations?persona_id=${pid}`);
-    if (data && data.length > 0) {
-      const latest = data[0];
-      setConversationId(latest.id);
-      const msgs = await getJSON(`/api/conversations/${latest.id}/messages`);
-      if (msgs) {
-        const mapped = msgs.map((m: { role: string; content: string; regenerate_index?: number }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-          regenerate_index: m.regenerate_index ?? 0,
-        }));
-        const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === resolveUserVars(persona.greeting, userProfile));
-        if (!hasGreeting && persona?.greeting) {
-          mapped.unshift({ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) });
+    try {
+      const persona = findPersona(pid);
+      const data = await getJSON(`/api/conversations?persona_id=${pid}`);
+      if (data && data.length > 0) {
+        const latest = data[0];
+        setConversationId(latest.id);
+        const msgs = await getJSON(`/api/conversations/${latest.id}/messages`);
+        if (msgs) {
+          const mapped = msgs.map((m: { role: string; content: string; regenerate_index?: number }) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+            regenerate_index: m.regenerate_index ?? 0,
+          }));
+          const hasGreeting = persona?.greeting && mapped.some((m: { role: string; content: string }) => m.content === resolveUserVars(persona.greeting, userProfile));
+          if (!hasGreeting && persona?.greeting) {
+            mapped.unshift({ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) });
+          }
+          setMessages(mapped);
+          setRegenView({});
         }
-        setMessages(mapped);
-        setRegenView({});
+      } else if (persona?.greeting) {
+        setMessages([{ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) }]);
       }
-    } else if (persona?.greeting) {
-      setMessages([{ role: "assistant", content: resolveUserVars(persona.greeting, userProfile) }]);
+      setConversations(data || []);
+    } finally {
+      selectingRef.current = null;
     }
-    setConversations(data || []);
   }
 
   function handleBackToDefault() {
@@ -382,16 +442,23 @@ export default function App() {
 
   const currentPersona =
     route.path === "chat" || route.path === "profile" || route.path === "edit"
-      ? personas.find((p) => p.id === route.personaId) ?? null
+      ? findPersona(route.personaId)
       : null;
+
+  const sidebarPersonas = Array.from(
+    new Map([...personas, ...favoritePersonas].map((ps) => [ps.id, ps])).values()
+  );
+
+  const favoriteIds = new Set(favoritePersonas.map((f) => f.id));
 
   return (
     <div className={`${dark ? "dark" : ""} flex h-screen overflow-hidden`}>
       <Sidebar
         conversations={conversations}
-        personas={personas}
+        personas={sidebarPersonas}
         personaId={route.path === "chat" ? route.personaId : null}
         userProfile={userProfile}
+        onOpenDiscover={() => navigate({ path: "discover" })}
         onSelectPersona={handleSelectPersona}
         onNewPersona={() => { setEditingPersona(null); navigate({ path: "create" }); }}
         onEditPersona={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
@@ -442,6 +509,13 @@ export default function App() {
             onEdit={(p) => { setEditingPersona(p); navigate({ path: "edit", personaId: p.id }); }}
             onChat={(pid) => handleSelectPersona(pid)}
             conversationCount={profileConversationCount}
+          />
+        ) : route.path === "discover" ? (
+          <Discover
+            personas={allPersonas}
+            favorites={favoriteIds}
+            onChat={(pid) => handleSelectPersona(pid)}
+            onToggleFavorite={handleToggleFavorite}
           />
         ) : route.path === "chat" && currentPersona ? (
           <div className="flex-1 flex min-h-0">

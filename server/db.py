@@ -44,7 +44,7 @@ def init_db() -> None:
             )
             """
         )
-        for col in ("about", "greeting", "persona_id"):
+        for col in ("about", "greeting", "persona_id", "user_id"):
             try:
                 cur.execute(f"ALTER TABLE conversations ADD COLUMN {col} TEXT")
             except sqlite3.OperationalError:
@@ -75,6 +75,10 @@ def init_db() -> None:
                 pass
         try:
             cur.execute("ALTER TABLE personas ADD COLUMN likes INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cur.execute("ALTER TABLE personas ADD COLUMN user_id TEXT")
         except sqlite3.OperationalError:
             pass
         try:

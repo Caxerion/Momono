@@ -22,6 +22,7 @@ type Props = {
   personas: Persona[];
   personaId: string | null;
   userProfile: UserProfile | null;
+  onOpenDiscover: () => void;
   onSelectPersona: (id: string) => void;
   onNewPersona: () => void;
   onEditPersona: (persona: Persona) => void;
@@ -92,6 +93,7 @@ export default function Sidebar(p: Props) {
       {/* Primary nav */}
       <nav className={`flex flex-col gap-0.5 ${collapsed ? "px-2 items-center" : "px-2"}`}>
         <button
+          onClick={p.onOpenDiscover}
           title="Discover"
           className={`flex items-center gap-3 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors ${
             collapsed ? "justify-center w-10 h-10" : "w-full px-2.5 py-2"

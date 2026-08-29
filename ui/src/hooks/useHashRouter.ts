@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Route =
   | { path: "home" }
+  | { path: "discover" }
   | { path: "chat"; personaId: string }
   | { path: "profile"; personaId: string }
   | { path: "me" }
@@ -16,6 +17,7 @@ function parseHash(): Route {
   if (segs[0] === "chat" && segs[1]) return { path: "chat", personaId: segs[1] };
   if (segs[0] === "profile" && segs[1]) return { path: "profile", personaId: segs[1] };
   if (segs[0] === "edit" && segs[1]) return { path: "edit", personaId: segs[1] };
+  if (segs[0] === "discover") return { path: "discover" };
   if (segs[0] === "me") return { path: "me" };
   if (segs[0] === "create") return { path: "create" };
   if (segs[0] === "settings") return { path: "settings" };
@@ -37,6 +39,7 @@ export function useHashRouter() {
     let hash = "#/";
     switch (to.path) {
       case "home": hash = "#/"; break;
+      case "discover": hash = "#/discover"; break;
       case "chat": hash = `#/chat/${to.personaId}`; break;
       case "profile": hash = `#/profile/${to.personaId}`; break;
       case "me": hash = "#/me"; break;
