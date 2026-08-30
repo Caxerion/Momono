@@ -7,7 +7,6 @@ from db import connect, init_db
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from llm import load_config, stream_chat
-from typing import Optional
 
 app = FastAPI()
 cfg = load_config()
@@ -196,7 +195,7 @@ async def chat(req: Request):
     return StreamingResponse(event_stream(), media_type="text/plain")
 
 @app.get("/api/personas")
-def list_personas(req: Request, mine: bool = False, user_id: Optional[int] = None):
+def list_personas(req: Request, mine: bool = False, user_id: int | None = None):
     user_id_current = current_user(req)
     with connect() as conn:
         if mine:
