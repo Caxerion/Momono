@@ -65,7 +65,7 @@ function Section({ label, children, italic }: { label: string; children: string;
             onClick={() => setExpanded((v) => !v)}
             className="mt-2 text-sm font-semibold text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300"
           >
-            {expanded ? "Less Read" : "Read More"}
+            {expanded ? "Read Less" : "Read More"}
           </button>
         )}
       </div>

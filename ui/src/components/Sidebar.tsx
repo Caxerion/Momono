@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Plus,
@@ -35,25 +36,30 @@ type Props = {
 export default function Sidebar(p: Props) {
   const [chatsOpen, setChatsOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [search, setSearch] = useState("");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
   const [moreMenu, setMoreMenu] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideTrigger = !!menuRef.current?.contains(target);
+      const insideDropdown = !!portalRef.current?.contains(target);
+      if (menuOpen && !insideTrigger && !insideDropdown) {
         setMenuOpen(null);
       }
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+      if (moreRef.current && !moreRef.current.contains(target)) {
         setMoreMenu(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [menuOpen]);
 
   const filtered = p.personas.filter((ps) =>
     ps.name.toLowerCase().includes(search.toLowerCase())
@@ -69,7 +75,7 @@ export default function Sidebar(p: Props) {
       <button
         onClick={() => setCollapsed(!collapsed)}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="absolute -right-3 top-6 z-30 w-6 h-6 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-sm flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+        className="absolute -right-3 top-6 z-30 w-6 h-6 rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 shadow-sm flex items-center justify-center text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
       >
         {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
       </button>
@@ -95,7 +101,7 @@ export default function Sidebar(p: Props) {
         <button
           onClick={p.onOpenDiscover}
           title="Discover"
-          className={`flex items-center gap-3 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors ${
+          className={`flex items-center gap-3 rounded-lg text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
             collapsed ? "justify-center w-10 h-10" : "w-full px-2.5 py-2"
           }`}
         >
@@ -105,7 +111,7 @@ export default function Sidebar(p: Props) {
         <button
           onClick={p.onNewPersona}
           title="Create Character"
-          className={`flex items-center gap-3 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors ${
+          className={`flex items-center gap-3 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
             collapsed ? "justify-center w-10 h-10" : "w-full px-2.5 py-2"
           }`}
         >
@@ -136,6 +142,12 @@ export default function Sidebar(p: Props) {
 
       {/* Chat list */}
       <div
+        onScroll={() => {
+          if (menuOpen) {
+            setMenuOpen(null);
+            setMenuPos(null);
+          }
+        }}
         className={`pb-1 flex flex-col gap-0.5 flex-1 overflow-y-auto sidebar-scroll ${
           collapsed ? "px-2 pt-3 items-center" : "px-2"
         }`}
@@ -143,7 +155,7 @@ export default function Sidebar(p: Props) {
         {!collapsed && (
           <button
             onClick={() => setChatsOpen(!chatsOpen)}
-            className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors"
+            className="flex items-center gap-1.5 w-full px-2.5 py-2 rounded-lg text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
           >
             <ChevronRight
               size={13}
@@ -183,7 +195,7 @@ export default function Sidebar(p: Props) {
                     key={ps.id}
                     onClick={() => p.onSelectPersona(ps.id)}
                     title={ps.name}
-                    className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors ${
+                    className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
                       isActive
                         ? "bg-indigo-100 dark:bg-indigo-900/50"
                         : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
@@ -200,10 +212,13 @@ export default function Sidebar(p: Props) {
               filtered.map((ps) => {
                 const hasChats = p.conversations.some((c) => c.persona_id === ps.id);
                 const isActive = p.personaId === ps.id;
+                const isMenuOpen = menuOpen === ps.id;
                 return (
                   <div
                     key={ps.id}
                     className={`group relative flex items-center gap-1 rounded-lg text-sm transition-colors ${
+                      isMenuOpen ? "z-20" : "z-0"
+                    } ${
                       isActive
                         ? "bg-indigo-100 dark:bg-indigo-900/50"
                         : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
@@ -214,7 +229,7 @@ export default function Sidebar(p: Props) {
                     )}
                     <button
                       onClick={() => p.onSelectPersona(ps.id)}
-                      className="flex items-center gap-2.5 flex-1 min-w-0 px-2.5 py-2"
+                      className="flex items-center gap-2.5 flex-1 min-w-0 px-2.5 py-2 focus:outline-none"
                     >
                       <Avatar name={ps.name} size={30} src={ps.avatar_url} />
                       <div className="min-w-0 flex-1 text-left">
@@ -239,45 +254,25 @@ export default function Sidebar(p: Props) {
                         </span>
                       )}
                     </button>
-                    <div
-                      className="relative shrink-0 pr-1.5"
-                      ref={menuOpen === ps.id ? menuRef : undefined}
-                    >
+                    <div className="relative shrink-0 pr-1.5" ref={isMenuOpen ? menuRef : undefined}>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setMenuOpen(menuOpen === ps.id ? null : ps.id);
+                          if (isMenuOpen) {
+                            setMenuOpen(null);
+                            setMenuPos(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuOpen(ps.id);
+                            setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+                          }
                         }}
-                        className={`p-1.5 rounded-md text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-zinc-700 transition-opacity ${
-                          menuOpen === ps.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        className={`p-1.5 rounded-md text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-zinc-700 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                          isMenuOpen ? "opacity-100 bg-zinc-300/70 dark:bg-zinc-700" : "opacity-0 group-hover:opacity-100"
                         }`}
                       >
                         <MoreVertical size={15} />
                       </button>
-                      {menuOpen === ps.id && (
-                        <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
-                          <button
-                            onClick={() => {
-                              p.onEditPersona(ps);
-                              setMenuOpen(null);
-                            }}
-                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-                          >
-                            <Pencil size={14} />
-                            Edit Character
-                          </button>
-                          <button
-                            onClick={() => {
-                              p.onDeleteHistory(ps.id);
-                              setMenuOpen(null);
-                            }}
-                            className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            <Trash2 size={14} />
-                            Delete History
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -300,7 +295,7 @@ export default function Sidebar(p: Props) {
             <button
               onClick={() => setMoreMenu((v) => !v)}
               title={p.userProfile.display_name || p.userProfile.username}
-              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors"
+              className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
             >
               <Avatar name={p.userProfile.username} size={32} src={p.userProfile.avatar_url} />
             </button>
@@ -317,11 +312,14 @@ export default function Sidebar(p: Props) {
                   e.stopPropagation();
                   if (p.userProfile?.avatar_url) setPhotoPreview(p.userProfile.avatar_url);
                 }}
-                className="shrink-0 pl-2"
+                className="shrink-0 pl-2 focus:outline-none"
               >
                 <Avatar name={p.userProfile.username} size={36} src={p.userProfile.avatar_url} />
               </button>
-              <button onClick={p.onOpenProfile} className="min-w-0 flex-1 text-left px-2 py-2">
+              <button
+                onClick={p.onOpenProfile}
+                className="min-w-0 flex-1 text-left px-2 py-2 focus:outline-none"
+              >
                 <p className="text-sm font-semibold truncate text-zinc-900 dark:text-zinc-100">
                   {p.userProfile.display_name || p.userProfile.username}
                 </p>
@@ -329,7 +327,7 @@ export default function Sidebar(p: Props) {
               </button>
               <button
                 onClick={() => setMoreMenu((v) => !v)}
-                className="shrink-0 p-2 mr-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="shrink-0 p-2 mr-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
               >
                 <Settings size={16} />
               </button>
@@ -347,7 +345,7 @@ export default function Sidebar(p: Props) {
                   setMoreMenu(false);
                   p.onOpenProfile();
                 }}
-                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:outline-none focus-visible:bg-zinc-100 dark:focus-visible:bg-zinc-700"
               >
                 <User size={14} />
                 Profile
@@ -357,7 +355,7 @@ export default function Sidebar(p: Props) {
                   setMoreMenu(false);
                   p.onOpenSettings();
                 }}
-                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700"
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:outline-none focus-visible:bg-zinc-100 dark:focus-visible:bg-zinc-700"
               >
                 <Settings size={14} />
                 Settings
@@ -368,7 +366,7 @@ export default function Sidebar(p: Props) {
                   setMoreMenu(false);
                   p.onLogout();
                 }}
-                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus-visible:bg-red-50 dark:focus-visible:bg-red-900/20"
               >
                 <LogOut size={14} />
                 Logout
@@ -391,6 +389,48 @@ export default function Sidebar(p: Props) {
           />
         </div>
       )}
+
+      {/* Dropdown Edit/Delete per karakter — di-portal ke body biar nggak kepotong
+          overflow-y-auto punya daftar chat, posisinya fixed ngikutin koordinat tombol ⋮ */}
+      {menuOpen &&
+        menuPos &&
+        createPortal(
+          (() => {
+            const activePersona = filtered.find((ps) => ps.id === menuOpen);
+            if (!activePersona) return null;
+            return (
+              <div
+                ref={portalRef}
+                style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: 176 }}
+                className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-50 py-1 overflow-hidden"
+              >
+                <button
+                  onClick={() => {
+                    p.onEditPersona(activePersona);
+                    setMenuOpen(null);
+                    setMenuPos(null);
+                  }}
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:outline-none focus-visible:bg-zinc-100 dark:focus-visible:bg-zinc-700"
+                >
+                  <Pencil size={14} />
+                  Edit Character
+                </button>
+                <button
+                  onClick={() => {
+                    p.onDeleteHistory(activePersona.id);
+                    setMenuOpen(null);
+                    setMenuPos(null);
+                  }}
+                  className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus-visible:bg-red-50 dark:focus-visible:bg-red-900/20"
+                >
+                  <Trash2 size={14} />
+                  Delete History
+                </button>
+              </div>
+            );
+          })(),
+          document.body
+        )}
 
       <style>{`
         .sidebar-scroll::-webkit-scrollbar { width: 6px; }

@@ -36,6 +36,7 @@ export default function App() {
   );
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [allConversations, setAllConversations] = useState<Conversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [input, setInput] = useState("");
@@ -93,6 +94,11 @@ export default function App() {
     if (data) setConversations(data);
   }
 
+  async function loadAllConversations() {
+    const data = await getJSON("/api/conversations");
+    if (data) setAllConversations(data);
+  }
+
   async function loadPersonas() {
     const data = await getJSON("/api/personas?mine=true");
     if (data) setPersonas(data);
@@ -108,12 +114,19 @@ export default function App() {
     if (data) setFavoritePersonas(data);
   }
 
+  async function loadAllPersonas() {
+    const data = await getJSON("/api/personas");
+    if (data) setAllPersonas(data);
+  }
+
   useEffect(() => {
     if (token) {
       loadProfile();
       loadConversations();
+      loadAllConversations();
       loadPersonas();
       loadFavorites();
+      loadAllPersonas();
     } else {
       setUserProfile(null);
       setFavoritePersonas([]);
@@ -199,9 +212,7 @@ export default function App() {
 
   useEffect(() => {
     if (route.path === "discover" && token) {
-      getJSON("/api/personas").then((data) => {
-        if (data) setAllPersonas(data);
-      });
+      loadAllPersonas();
       loadFavorites();
     }
   }, [route, token]);
@@ -302,6 +313,7 @@ export default function App() {
     setConversationId(null);
     setMessages([]);
     setShowCharacterSidebar(false);
+    loadAllConversations();
   }
 
   async function ensureConversation(): Promise<string> {
@@ -323,6 +335,7 @@ export default function App() {
       });
     }
     loadConversations();
+    loadAllConversations();
     return d.id;
   }
 
@@ -370,6 +383,8 @@ export default function App() {
       });
     }
     setBusy(false);
+    loadConversations();
+    loadAllConversations();
   }
 
   async function regenerate() {
@@ -445,6 +460,7 @@ export default function App() {
   function handleLogin(newToken: string) {
     localStorage.setItem("token", newToken);
     setToken(newToken);
+    navigate({ path: "discover" });
   }
 
   function handleLogout() {
@@ -469,8 +485,23 @@ export default function App() {
       ? findPersona(route.personaId)
       : null;
 
+  const chattedIds = new Set(
+    allConversations.map((c) => c.persona_id).filter((id): id is string => Boolean(id))
+  );
+  const personaOrder = new Map<string, number>();
+  allConversations.forEach((c, i) => {
+    if (c.persona_id && !personaOrder.has(c.persona_id)) {
+      personaOrder.set(c.persona_id, i);
+    }
+  });
   const sidebarPersonas = Array.from(
-    new Map([...personas, ...favoritePersonas].map((ps) => [ps.id, ps])).values()
+    new Map(
+      [...allPersonas, ...personas, ...favoritePersonas]
+        .filter((ps) => chattedIds.has(ps.id))
+        .map((ps) => [ps.id, ps])
+    ).values()
+  ).sort(
+    (a, b) => (personaOrder.get(a.id) ?? Infinity) - (personaOrder.get(b.id) ?? Infinity)
   );
 
   const favoriteIds = new Set(favoritePersonas.map((f) => f.id));

@@ -201,7 +201,6 @@ export default function CharacterSidebar({
           <div className="px-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                Categories
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
