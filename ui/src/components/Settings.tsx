@@ -13,6 +13,7 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
   const [username, setUsername] = useState(profile.username);
   const [displayName, setDisplayName] = useState(profile.display_name);
   const [aboutMe, setAboutMe] = useState(profile.about_me);
+  const [gender, setGender] = useState(profile.gender ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? "");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -58,11 +59,11 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ username, display_name: displayName, about_me: aboutMe }),
+      body: JSON.stringify({ username, display_name: displayName, about_me: aboutMe, gender }),
     });
     if (r.ok) {
       setSaved(true);
-      onSaved({ ...profile, username, display_name: displayName, about_me: aboutMe, avatar_url: avatarUrl });
+      onSaved({ ...profile, username, display_name: displayName, about_me: aboutMe, avatar_url: avatarUrl, gender });
       setTimeout(() => setSaved(false), 2000);
     } else {
       const text = await r.text();
@@ -152,6 +153,14 @@ export default function Settings({ profile, token, onBack, onSaved }: Props) {
           value={aboutMe}
           onChange={(e) => setAboutMe(e.target.value)}
           placeholder="Tell about yourself..."
+        />
+
+        <label className="block text-sm font-medium mb-1">Gender</label>
+        <input
+          className="w-full mb-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-2.5 bg-zinc-100 dark:bg-zinc-800"
+          value={gender}
+          onChange={(e) => setGender(e.target.value)}
+          placeholder="Male, Female, or other..."
         />
 
         <div className="flex items-center gap-3 pb-6">

@@ -21,6 +21,7 @@ import type { Conversation, Persona, UserProfile } from "../types";
 type Props = {
   conversations: Conversation[];
   personas: Persona[];
+  createdPersonas: Persona[];
   personaId: string | null;
   userProfile: UserProfile | null;
   onOpenDiscover: () => void;
@@ -35,6 +36,7 @@ type Props = {
 
 export default function Sidebar(p: Props) {
   const [chatsOpen, setChatsOpen] = useState(true);
+  const [createdOpen, setCreatedOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [search, setSearch] = useState("");
@@ -61,9 +63,112 @@ export default function Sidebar(p: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [menuOpen]);
 
-  const filtered = p.personas.filter((ps) =>
-    ps.name.toLowerCase().includes(search.toLowerCase())
+  const q = search.toLowerCase();
+  const chatsFiltered = p.personas.filter((ps) =>
+    ps.name.toLowerCase().includes(q)
   );
+  const createdFiltered = p.createdPersonas.filter((ps) =>
+    ps.name.toLowerCase().includes(q)
+  );
+  const allFiltered = [...chatsFiltered, ...createdFiltered];
+
+  function renderList(list: Persona[], collapsed: boolean) {
+    if (collapsed) {
+      // Collapsed: icon-only avatar rail
+      return list.map((ps) => {
+        const isActive = p.personaId === ps.id;
+        return (
+          <button
+            key={ps.id}
+            onClick={() => p.onSelectPersona(ps.id)}
+            title={ps.name}
+            className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+              isActive
+                ? "bg-indigo-100 dark:bg-indigo-900/50"
+                : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
+            }`}
+          >
+            {isActive && (
+              <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-500" />
+            )}
+            <Avatar name={ps.name} size={28} src={ps.avatar_url} />
+          </button>
+        );
+      });
+    }
+
+    return list.map((ps) => {
+      const hasChats = p.conversations.some((c) => c.persona_id === ps.id);
+      const isActive = p.personaId === ps.id;
+      const isMenuOpen = menuOpen === ps.id;
+      const created = p.createdPersonas.some((cp) => cp.id === ps.id);
+      return (
+        <div
+          key={ps.id}
+          className={`group relative flex items-center gap-1 rounded-lg text-sm transition-colors ${
+            isMenuOpen ? "z-20" : "z-0"
+          } ${
+            isActive
+              ? "bg-indigo-100 dark:bg-indigo-900/50"
+              : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
+          }`}
+        >
+          {isActive && (
+            <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-500" />
+          )}
+          <button
+            onClick={() => p.onSelectPersona(ps.id)}
+            className="flex items-center gap-2.5 flex-1 min-w-0 px-2.5 py-2 focus:outline-none"
+          >
+            <Avatar name={ps.name} size={30} src={ps.avatar_url} />
+            <div className="min-w-0 flex-1 text-left">
+              <span
+                className={`block truncate text-sm ${
+                  isActive
+                    ? "font-semibold text-indigo-700 dark:text-indigo-300"
+                    : "text-zinc-700 dark:text-zinc-300"
+                }`}
+              >
+                {ps.name}
+              </span>
+              {created ? (
+                <span className="block truncate text-xs text-indigo-400">Your creation</span>
+              ) : (
+                ps.title && (
+                  <span className="block truncate text-xs text-zinc-400">{ps.title}</span>
+                )
+              )}
+            </div>
+            {!hasChats && (
+              <span className="ml-auto shrink-0 text-[10px] font-medium text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
+                new
+              </span>
+            )}
+          </button>
+          <div className="relative shrink-0 pr-1.5" ref={isMenuOpen ? menuRef : undefined}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isMenuOpen) {
+                  setMenuOpen(null);
+                  setMenuPos(null);
+                } else {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setMenuOpen(ps.id);
+                  setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
+                }
+              }}
+              className={`p-1.5 rounded-md text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-zinc-700 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
+                isMenuOpen ? "opacity-100 bg-zinc-300/70 dark:bg-zinc-700" : "opacity-0 group-hover:opacity-100"
+              }`}
+            >
+              <MoreVertical size={15} />
+            </button>
+          </div>
+        </div>
+      );
+    });
+  }
 
   return (
     <aside
@@ -140,7 +245,7 @@ export default function Sidebar(p: Props) {
         </div>
       )}
 
-      {/* Chat list */}
+      {/* Persona list */}
       <div
         onScroll={() => {
           if (menuOpen) {
@@ -163,9 +268,9 @@ export default function Sidebar(p: Props) {
               className={`transition-transform duration-150 ${chatsOpen ? "rotate-90" : ""}`}
             />
             Chats
-            {filtered.length > 0 && (
+            {chatsFiltered.length > 0 && (
               <span className="ml-auto text-[11px] font-normal normal-case text-zinc-400">
-                {filtered.length}
+                {chatsFiltered.length}
               </span>
             )}
           </button>
@@ -180,106 +285,58 @@ export default function Sidebar(p: Props) {
         >
           <div className="overflow-hidden min-h-0">
             <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
-            {filtered.length === 0 ? (
+            {chatsFiltered.length === 0 ? (
               !collapsed && (
                 <p className="text-xs text-zinc-400 px-3 py-3">
                   {search ? `No results for "${search}"` : "No characters yet"}
                 </p>
               )
-            ) : collapsed ? (
-              // Collapsed: icon-only avatar rail
-              filtered.map((ps) => {
-                const isActive = p.personaId === ps.id;
-                return (
-                  <button
-                    key={ps.id}
-                    onClick={() => p.onSelectPersona(ps.id)}
-                    title={ps.name}
-                    className={`relative flex items-center justify-center w-10 h-10 rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                      isActive
-                        ? "bg-indigo-100 dark:bg-indigo-900/50"
-                        : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-500" />
-                    )}
-                    <Avatar name={ps.name} size={28} src={ps.avatar_url} />
-                  </button>
-                );
-              })
             ) : (
-              filtered.map((ps) => {
-                const hasChats = p.conversations.some((c) => c.persona_id === ps.id);
-                const isActive = p.personaId === ps.id;
-                const isMenuOpen = menuOpen === ps.id;
-                return (
-                  <div
-                    key={ps.id}
-                    className={`group relative flex items-center gap-1 rounded-lg text-sm transition-colors ${
-                      isMenuOpen ? "z-20" : "z-0"
-                    } ${
-                      isActive
-                        ? "bg-indigo-100 dark:bg-indigo-900/50"
-                        : "hover:bg-zinc-200/70 dark:hover:bg-zinc-800"
-                    }`}
-                  >
-                    {isActive && (
-                      <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-500" />
-                    )}
-                    <button
-                      onClick={() => p.onSelectPersona(ps.id)}
-                      className="flex items-center gap-2.5 flex-1 min-w-0 px-2.5 py-2 focus:outline-none"
-                    >
-                      <Avatar name={ps.name} size={30} src={ps.avatar_url} />
-                      <div className="min-w-0 flex-1 text-left">
-                        <span
-                          className={`block truncate text-sm ${
-                            isActive
-                              ? "font-semibold text-indigo-700 dark:text-indigo-300"
-                              : "text-zinc-700 dark:text-zinc-300"
-                          }`}
-                        >
-                          {ps.name}
-                        </span>
-                        {ps.title && (
-                          <span className="block truncate text-xs text-zinc-400">
-                            {ps.title}
-                          </span>
-                        )}
-                      </div>
-                      {!hasChats && (
-                        <span className="ml-auto shrink-0 text-[10px] font-medium text-indigo-500 bg-indigo-500/10 px-1.5 py-0.5 rounded-full">
-                          new
-                        </span>
-                      )}
-                    </button>
-                    <div className="relative shrink-0 pr-1.5" ref={isMenuOpen ? menuRef : undefined}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (isMenuOpen) {
-                            setMenuOpen(null);
-                            setMenuPos(null);
-                          } else {
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            setMenuOpen(ps.id);
-                            setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 });
-                          }
-                        }}
-                        className={`p-1.5 rounded-md text-zinc-400 hover:bg-zinc-300/70 dark:hover:bg-zinc-700 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-                          isMenuOpen ? "opacity-100 bg-zinc-300/70 dark:bg-zinc-700" : "opacity-0 group-hover:opacity-100"
-                        }`}
-                      >
-                        <MoreVertical size={15} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+              renderList(chatsFiltered, collapsed)
             )}
             </div>
+          </div>
+        </div>
+
+        {!collapsed && (
+          <button
+            onClick={() => setCreatedOpen(!createdOpen)}
+            className="flex items-center gap-1.5 w-full px-2.5 py-2 mt-1 rounded-lg text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <ChevronRight
+              size={13}
+              strokeWidth={2.5}
+              className={`transition-transform duration-150 ${createdOpen ? "rotate-90" : ""}`}
+            />
+            Your Created
+            {createdFiltered.length > 0 && (
+              <span className="ml-auto text-[11px] font-normal normal-case text-zinc-400">
+                {createdFiltered.length}
+              </span>
+            )}
+          </button>
+        )}
+
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+            collapsed || createdOpen
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className={`flex flex-col gap-0.5 ${collapsed ? "items-center" : ""}`}>
+            {createdFiltered.length === 0 ? (
+              !collapsed && (
+                <p className="text-xs text-zinc-400 px-3 py-2">
+                  No created characters yet
+                </p>
+              )
+            ) : (
+              renderList(createdFiltered, collapsed)
+            )}
             </div>
+          </div>
         </div>
       </div>
 
@@ -396,7 +453,7 @@ export default function Sidebar(p: Props) {
         menuPos &&
         createPortal(
           (() => {
-            const activePersona = filtered.find((ps) => ps.id === menuOpen);
+            const activePersona = allFiltered.find((ps) => ps.id === menuOpen);
             if (!activePersona) return null;
             return (
               <div

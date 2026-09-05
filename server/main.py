@@ -454,8 +454,8 @@ def delete_persona_conversations(pid: str, req: Request):
 
 
 @app.get("/api/user/favorites")
-def list_user_favorites(req: Request):
-    user_id = current_user(req)
+def list_user_favorites(req: Request, user_id: int | None = None):
+    uid = str(user_id) if user_id is not None else current_user(req)
     with connect() as conn:
         rows = conn.execute(
             """
@@ -464,6 +464,111 @@ def list_user_favorites(req: Request):
             WHERE f.user_id = ?
             ORDER BY f.created_at DESC
             """,
-            (user_id,),
+            (uid,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+@app.get("/api/users/{uid}/stats")
+def user_stats(uid: str):
+    with connect() as conn:
+        followers = conn.execute(
+            "SELECT COUNT(*) FROM user_follows WHERE following_id=?", (uid,)
+        ).fetchone()[0]
+        following = conn.execute(
+            "SELECT COUNT(*) FROM user_follows WHERE follower_id=?", (uid,)
+        ).fetchone()[0]
+        favorites = conn.execute(
+            "SELECT COUNT(*) FROM user_favorites WHERE creator_id=?", (uid,)
+        ).fetchone()[0]
+    return {"followers": followers, "following": following, "favorites": favorites}
+
+
+@app.get("/api/users/{uid}/relation")
+def user_relation(uid: str, req: Request):
+    me = current_user(req)
+    with connect() as conn:
+        following = conn.execute(
+            "SELECT 1 FROM user_follows WHERE follower_id=? AND following_id=?",
+            (me, uid),
+        ).fetchone() is not None
+        favorite = conn.execute(
+            "SELECT 1 FROM user_favorites WHERE user_id=? AND creator_id=?",
+            (me, uid),
+        ).fetchone() is not None
+    return {"following": following, "favorite": favorite}
+
+
+@app.post("/api/users/{uid}/follow")
+async def toggle_user_follow(uid: str, req: Request):
+    data = await req.json()
+    me = current_user(req)
+    if me == uid:
+        return {"error": "cannot follow yourself"}
+    ts = now()
+    with connect() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM user_follows WHERE follower_id=? AND following_id=?",
+            (me, uid),
+        ).fetchone()
+        if data.get("following", True):
+            if not existing:
+                conn.execute(
+                    "INSERT INTO user_follows (follower_id, following_id, created_at) VALUES (?,?,?)",
+                    (me, uid, ts),
+                )
+            following = True
+        else:
+            if existing:
+                conn.execute(
+                    "DELETE FROM user_follows WHERE follower_id=? AND following_id=?",
+                    (me, uid),
+                )
+            following = False
+        conn.commit()
+    return {"following": following}
+
+
+@app.post("/api/users/{uid}/favorite")
+async def toggle_user_favorite(uid: str, req: Request):
+    data = await req.json()
+    me = current_user(req)
+    if me == uid:
+        return {"error": "cannot favorite yourself"}
+    ts = now()
+    with connect() as conn:
+        existing = conn.execute(
+            "SELECT 1 FROM user_favorites WHERE user_id=? AND creator_id=?",
+            (me, uid),
+        ).fetchone()
+        if data.get("favorite", True):
+            if not existing:
+                conn.execute(
+                    "INSERT INTO user_favorites (user_id, creator_id, created_at) VALUES (?,?,?)",
+                    (me, uid, ts),
+                )
+            favorite = True
+        else:
+            if existing:
+                conn.execute(
+                    "DELETE FROM user_favorites WHERE user_id=? AND creator_id=?",
+                    (me, uid),
+                )
+            favorite = False
+        conn.commit()
+    return {"favorite": favorite}
+
+
+@app.post("/api/users/{uid}/report")
+async def report_user(uid: str, req: Request):
+    data = await req.json()
+    me = current_user(req)
+    reason = data.get("reason", "")
+    ts = now()
+    with connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO user_reports (reporter_id, reported_id, reason, created_at) VALUES (?,?,?,?)",
+            (me, uid, reason, ts),
+        )
+        conn.commit()
+    return {"ok": True}

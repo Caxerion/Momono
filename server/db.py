@@ -116,6 +116,37 @@ def init_db() -> None:
             )
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_follows (
+                follower_id TEXT NOT NULL,
+                following_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (follower_id, following_id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_favorites (
+                user_id TEXT NOT NULL,
+                creator_id TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, creator_id)
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_reports (
+                reporter_id TEXT NOT NULL,
+                reported_id TEXT NOT NULL,
+                reason TEXT,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (reporter_id, reported_id)
+            )
+            """
+        )
         seed_categories(cur)
         conn.commit()
 

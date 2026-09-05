@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   Pencil,
   User,
   Users,
   UserPlus,
+  UserMinus,
   MessageSquare,
   MoreHorizontal,
   ThumbsUp,
+  Star,
+  Flag,
 } from "lucide-react";
 import Avatar from "./Avatar";
 import type { UserProfile, Persona } from "../types";
@@ -169,6 +173,96 @@ export default function UserProfilePage({
   const [tab, setTab] = useState<"created" | "favorites">("created");
   const [conversationCounts, setConversationCounts] = useState<Record<string, number>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const [followersLocal, setFollowersLocal] = useState(followersCount);
+  const [followingLocal, setFollowingLocal] = useState(followingCount);
+  const [favoritCount, setFavoritCount] = useState(favoritedPersonas.length);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [reported, setReported] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!profile.id) return;
+    let cancelled = false;
+    const uid = String(profile.id);
+    const h: Record<string, string> = {};
+    if (token) h.Authorization = `Bearer ${token}`;
+
+    fetch(`/api/users/${uid}/stats`, { headers: h })
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled || !d || d.error) return;
+        setFollowersLocal(d.followers ?? 0);
+        setFollowingLocal(d.following ?? 0);
+        setFavoritCount(d.favorites ?? 0);
+      })
+      .catch(() => {});
+
+    if (!editable) {
+      fetch(`/api/users/${uid}/relation`, { headers: h })
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled || !d || d.error) return;
+          setIsFollowing(Boolean(d.following));
+          setIsFavorited(Boolean(d.favorite));
+        })
+        .catch(() => {});
+    }
+
+    function onDown(e: MouseEvent) {
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t)) {
+        setMenuOpen(false);
+        setMenuPos(null);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [profile.id, editable, token]);
+
+  async function sendJSON(path: string, body: Record<string, unknown>) {
+    const h: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) h.Authorization = `Bearer ${token}`;
+    const r = await fetch(path, { method: "POST", headers: h, body: JSON.stringify(body) });
+    return r.json().catch(() => null);
+  }
+
+  async function toggleFollow() {
+    const d = await sendJSON(`/api/users/${profile.id}/follow`, { following: !isFollowing });
+    if (d && typeof d.following === "boolean") {
+      setIsFollowing(d.following);
+      setFollowersLocal((c) => (d.following ? c + 1 : Math.max(0, c - 1)));
+    }
+    setMenuOpen(false);
+    setMenuPos(null);
+  }
+
+  async function toggleFavorite() {
+    const d = await sendJSON(`/api/users/${profile.id}/favorite`, { favorite: !isFavorited });
+    if (d && typeof d.favorite === "boolean") {
+      setIsFavorited(d.favorite);
+      setFavoritCount((c) => (d.favorite ? c + 1 : Math.max(0, c - 1)));
+    }
+    setMenuOpen(false);
+    setMenuPos(null);
+  }
+
+  async function doReport() {
+    if (reporting) return;
+    const reason = window.prompt("Reason for reporting this user (optional):") ?? "";
+    setReporting(true);
+    await sendJSON(`/api/users/${profile.id}/report`, { reason });
+    setReporting(false);
+    setReported(true);
+    setMenuOpen(false);
+    setMenuPos(null);
+  }
 
   async function uploadAvatar(file: File) {
     setUploading(true);
@@ -291,26 +385,52 @@ export default function UserProfilePage({
                         <Pencil size={15} />
                       </button>
                     )}
+                    {!editable && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (menuOpen) {
+                            setMenuOpen(false);
+                            setMenuPos(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuOpen(true);
+                            setMenuPos({ top: rect.bottom + 4, left: Math.min(rect.right - 176, window.innerWidth - 190) });
+                          }
+                        }}
+                        title="More actions"
+                        className="shrink-0 p-1.5 rounded-md text-zinc-400 hover:text-indigo-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors focus:outline-none"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
+                    )}
                   </div>
                   <p className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mt-1">
                     @{profile.username}
                   </p>
 
-                  {/* Followers / Following */}
+                  {/* Followers / Following / Favorit (sebagai creator) */}
                   <div className="flex items-center gap-4 mt-2.5">
                     <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
                       <Users size={15} />
                       <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                        {followersCount.toLocaleString()}
+                        {followersLocal.toLocaleString()}
                       </span>
                       Followers
                     </span>
                     <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
                       <UserPlus size={15} />
                       <span className="font-semibold text-zinc-700 dark:text-zinc-200">
-                        {followingCount.toLocaleString()}
+                        {followingLocal.toLocaleString()}
                       </span>
                       Following
+                    </span>
+                    <span className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                      <Star size={15} />
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+                        {favoritCount.toLocaleString()}
+                      </span>
+                      Favorit
                     </span>
                   </div>
                 </div>
@@ -342,18 +462,16 @@ export default function UserProfilePage({
                   >
                     Dibuat ({createdPersonas.length})
                   </button>
-                  {editable && (
-                    <button
-                      onClick={() => setTab("favorites")}
-                      className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                        tab === "favorites"
-                          ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                          : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
-                      }`}
-                    >
-                      Favorit ({favoritedPersonas.length})
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setTab("favorites")}
+                    className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                      tab === "favorites"
+                        ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                        : "border-transparent text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                    }`}
+                  >
+                    Favorit ({favoritedPersonas.length})
+                  </button>
                 </div>
 
                 <div className="mt-4">
@@ -476,6 +594,44 @@ export default function UserProfilePage({
           )}
         </div>
       </div>
+
+      {/* Dropdown: Follow/Unfollow, Favorite/Unfavorite, Report — di-portal ke body
+          biar nggak kepotong overflow-y-auto punya profil */}
+      {!editable &&
+        menuOpen &&
+        menuPos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: 176 }}
+            className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-lg z-50 py-1 overflow-hidden"
+          >
+            <button
+              onClick={toggleFollow}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:outline-none"
+            >
+              {isFollowing ? <UserMinus size={14} /> : <UserPlus size={14} />}
+              {isFollowing ? "Unfollow" : "Follow"}
+            </button>
+            <button
+              onClick={toggleFavorite}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 focus:outline-none"
+            >
+              <Star size={14} fill={isFavorited ? "currentColor" : "none"} />
+              {isFavorited ? "Unfavorite" : "Favorite"}
+            </button>
+            <div className="my-1 border-t border-zinc-200 dark:border-zinc-700" />
+            <button
+              onClick={doReport}
+              disabled={reporting || reported}
+              className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-60 focus:outline-none"
+            >
+              <Flag size={14} />
+              {reported ? "Reported" : reporting ? "Reporting..." : "Report"}
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

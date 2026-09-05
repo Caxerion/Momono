@@ -9,6 +9,7 @@ import Discover from "./components/Discover";
 import Settings from "./components/Settings";
 import UserProfilePage from "./components/UserProfile";
 import Login from "./components/Login";
+import WelcomeModal from "./components/WelcomeModal";
 import type { Conversation, Message, Persona, UserProfile } from "./types";
 
 const DEFAULT_PROMPT =
@@ -52,6 +53,8 @@ export default function App() {
   const [allPersonas, setAllPersonas] = useState<Persona[]>([]);
   const [viewUserProfile, setViewUserProfile] = useState<UserProfile | null>(null);
   const [viewUserPersonas, setViewUserPersonas] = useState<Persona[]>([]);
+  const [viewUserFavorites, setViewUserFavorites] = useState<Persona[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   const selectingRef = useRef<string | null>(null);
   const triedRef = useRef<string | null>(null);
@@ -106,7 +109,12 @@ export default function App() {
 
   async function loadProfile() {
     const data = await getJSON("/api/auth/me");
-    if (data) setUserProfile(data);
+    if (data) {
+      setUserProfile(data);
+      if (!data.display_name && !data.gender) {
+        setShowWelcome(true);
+      }
+    }
   }
 
   async function loadFavorites() {
@@ -197,12 +205,17 @@ export default function App() {
     if (route.path === "user" && token) {
       let cancelled = false;
       const uid = route.userId;
+      setViewUserPersonas([]);
+      setViewUserFavorites([]);
       getJSON(`/api/users/${uid}`).then((data) => {
         if (cancelled || !data || data.error) return;
         setViewUserProfile(data);
       });
       getJSON(`/api/personas?user_id=${uid}`).then((data) => {
         if (!cancelled && data) setViewUserPersonas(data);
+      });
+      getJSON(`/api/user/favorites?user_id=${uid}`).then((data) => {
+        if (!cancelled && data) setViewUserFavorites(data);
       });
       return () => {
         cancelled = true;
@@ -476,6 +489,29 @@ export default function App() {
     });
   }
 
+  async function handleWelcomeComplete(data: { displayName: string; gender: string }) {
+    if (!userProfile) return;
+    const r = await fetch("/api/auth/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify({
+        username: userProfile.username,
+        display_name: data.displayName,
+        about_me: userProfile.about_me || "",
+        gender: data.gender,
+      }),
+    });
+    if (r.ok) {
+      setShowWelcome(false);
+      loadProfile();
+    } else {
+      throw new Error("Failed to save");
+    }
+  }
+
   if (!token) {
     return <Login onLogin={handleLogin} />;
   }
@@ -511,6 +547,7 @@ export default function App() {
       <Sidebar
         conversations={conversations}
         personas={sidebarPersonas}
+        createdPersonas={personas}
         personaId={route.path === "chat" ? route.personaId : null}
         userProfile={userProfile}
         onOpenDiscover={() => navigate({ path: "discover" })}
@@ -565,6 +602,7 @@ export default function App() {
             editable={Boolean(userProfile && viewUserProfile.username === userProfile.username)}
             onBack={() => navigate({ path: "home" })}
             createdPersonas={viewUserPersonas}
+            favoritedPersonas={viewUserFavorites}
             onSelectPersona={(pid) => handleSelectPersona(pid)}
             onViewUser={handleViewUser}
           />
@@ -715,6 +753,11 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <WelcomeModal
+        isOpen={showWelcome}
+        onComplete={handleWelcomeComplete}
+      />
 
       <style>{`
         @keyframes fade-in {

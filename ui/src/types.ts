@@ -32,4 +32,5 @@ export type UserProfile = {
   display_name: string;
   about_me: string;
   avatar_url?: string | null;
+  gender?: string;
 };

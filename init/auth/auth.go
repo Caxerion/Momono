@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -45,6 +46,7 @@ created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		"ALTER TABLE users ADD COLUMN display_name TEXT",
 		"ALTER TABLE users ADD COLUMN about_me TEXT",
 		"ALTER TABLE users ADD COLUMN avatar_url TEXT",
+		"ALTER TABLE users ADD COLUMN gender TEXT",
 	} {
 		d.Exec(col)
 	}
@@ -108,12 +110,53 @@ func FindUserByGithubID(githubID string) (int64, error) {
 }
 
 func CreateUserWithGithub(githubID, username, email string) (int64, error) {
-	result, err := db.Exec(
-		"INSERT INTO users (username, email, github_id) VALUES (?, ?, ?)",
-		username, email, githubID,
-	)
-	if err != nil {
+	var emailVal interface{}
+	if email == "" {
+		emailVal = nil
+	} else {
+		emailVal = email
+	}
+
+	insert := func(uname string, mail interface{}) (int64, error) {
+		result, err := db.Exec(
+			"INSERT INTO users (username, email, github_id, password_hash) VALUES (?, ?, ?, '')",
+			uname, mail, githubID,
+		)
+		if err != nil {
+			return 0, err
+		}
+		return result.LastInsertId()
+	}
+
+	userID, err := insert(username, emailVal)
+	if err == nil {
+		return userID, nil
+	}
+	if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
 		return 0, err
 	}
-	return result.LastInsertId()
+
+	// Gap pertama gagal karena username atau email sudah dipakai. Urutan retry:
+	//  1. username asli tanpa email (kasus email bentrok, username bebas)
+	//  2. username unik dengan email asli (kasus username bentrok, email unik)
+	//  3. username unik tanpa email (kasus keduanya bentrok)
+	type attempt struct {
+		uname string
+		mail  interface{}
+	}
+	retries := []attempt{{username, nil}}
+	for i := 2; i <= 4; i++ {
+		suffix := fmt.Sprintf("%s-%d", username, i)
+		retries = append(retries, attempt{suffix, emailVal}, attempt{suffix, nil})
+	}
+	for _, a := range retries {
+		userID, err = insert(a.uname, a.mail)
+		if err == nil {
+			return userID, nil
+		}
+		if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return 0, err
+		}
+	}
+	return 0, fmt.Errorf("failed to create unique username")
 }

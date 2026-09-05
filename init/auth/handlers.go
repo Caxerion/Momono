@@ -143,8 +143,8 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid session", http.StatusUnauthorized)
 		return
 	}
-	var username, email, displayName, aboutMe, avatarUrl string
-	err = db.QueryRow("SELECT username, email, COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,'') FROM users WHERE id=?", userID).Scan(&username, &email, &displayName, &aboutMe, &avatarUrl)
+	var username, email, displayName, aboutMe, avatarUrl, gender string
+	err = db.QueryRow("SELECT username, COALESCE(email,''), COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,''), COALESCE(gender,'') FROM users WHERE id=?", userID).Scan(&username, &email, &displayName, &aboutMe, &avatarUrl, &gender)
 	if err != nil {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
@@ -157,6 +157,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		"display_name": displayName,
 		"about_me":     aboutMe,
 		"avatar_url":   avatarUrl,
+		"gender":       gender,
 	})
 }
 
@@ -178,11 +179,11 @@ func PublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var username, displayName, aboutMe, avatarUrl string
+	var username, displayName, aboutMe, avatarUrl, gender string
 	err = db.QueryRow(
-		"SELECT username, COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,'') FROM users WHERE id=?",
+		"SELECT username, COALESCE(display_name,''), COALESCE(about_me,''), COALESCE(avatar_url,''), COALESCE(gender,'') FROM users WHERE id=?",
 		userID,
-	).Scan(&username, &displayName, &aboutMe, &avatarUrl)
+	).Scan(&username, &displayName, &aboutMe, &avatarUrl, &gender)
 	if err == sql.ErrNoRows {
 		http.Error(w, "user not found", http.StatusNotFound)
 		return
@@ -195,10 +196,12 @@ func PublicUserProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
+		"id":           fmt.Sprintf("%d", userID),
 		"username":     username,
 		"display_name": displayName,
 		"about_me":     aboutMe,
 		"avatar_url":   avatarUrl,
+		"gender":       gender,
 	})
 }
 
@@ -218,6 +221,7 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		Username    string `json:"username"`
 		DisplayName string `json:"display_name"`
 		AboutMe     string `json:"about_me"`
+		Gender      string `json:"gender"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid request", http.StatusBadRequest)
@@ -229,8 +233,8 @@ func UpdateProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = db.Exec(
-		"UPDATE users SET username=?, display_name=?, about_me=? WHERE id=?",
-		body.Username, body.DisplayName, body.AboutMe, userID,
+		"UPDATE users SET username=?, display_name=?, about_me=?, gender=? WHERE id=?",
+		body.Username, body.DisplayName, body.AboutMe, body.Gender, userID,
 	)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
